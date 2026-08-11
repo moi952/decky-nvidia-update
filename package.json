@@ -1,6 +1,6 @@
 {
   "name": "decky-nvidia-update",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "display_name": "NVIDIA Driver Update",
   "description": "Pick and install an NVIDIA driver version directly on a running SteamOS system — no USB stick, no reinstall.",
   "type": "module",

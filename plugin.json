@@ -1,11 +1,19 @@
 {
   "name": "Decky NVIDIA Update",
   "author": "moi952",
-  "version": "0.1.0",
-  "flags": ["debug", "root"],
+  "version": "0.1.1",
+  "flags": [
+    "debug",
+    "root"
+  ],
   "api_version": 1,
   "publish": {
-    "tags": ["nvidia", "driver", "gpu", "steamos"],
+    "tags": [
+      "nvidia",
+      "driver",
+      "gpu",
+      "steamos"
+    ],
     "description": "Install or change the NVIDIA driver version directly on a running SteamOS system — no USB stick, no reinstall. Games, saves, Steam login, Decky, and other disks/partitions (including a Windows dual-boot) are never touched.",
     "image": ""
   }
