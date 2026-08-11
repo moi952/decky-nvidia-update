@@ -1,0 +1,78 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        // Preliminary deploy config setup (creates settings.json from the template on first run)
+        {
+            "label": "settingscheck",
+            "type": "shell",
+            "group": "none",
+            "detail": "Check that settings.json has been created",
+            "command": "${workspaceFolder}/.vscode/config.sh",
+            "problemMatcher": []
+        },
+        // BUILD — no Docker/decky-cli needed: this plugin's backend is pure
+        // stdlib Python, so a plain rollup build of the frontend is enough.
+        {
+            "label": "install",
+            "type": "shell",
+            "group": "none",
+            "detail": "Install pnpm dependencies",
+            "command": "pnpm install",
+            "problemMatcher": []
+        },
+        {
+            "label": "build",
+            "type": "shell",
+            "group": "build",
+            "detail": "Build the frontend (rollup)",
+            "dependsOrder": "sequence",
+            "dependsOn": ["install"],
+            "command": "pnpm run build",
+            "problemMatcher": []
+        },
+        // DEPLOY — copies the plugin folder straight to the Deck over SSH.
+        {
+            "label": "chmodplugins",
+            "type": "shell",
+            "group": "none",
+            "detail": "Make sure the plugins folder is writable before rsync",
+            "dependsOn": ["settingscheck"],
+            "command": "ssh -p ${config:deckport} ${config:deckkey} ${config:deckuser}@${config:deckip} 'echo ${config:deckpass} | sudo -S mkdir -m 755 -p \"${config:deckdir}/homebrew/plugins/${config:pluginname}\" && echo ${config:deckpass} | sudo -S chown -R ${config:deckuser}:${config:deckuser} \"${config:deckdir}/homebrew/plugins/${config:pluginname}\"'",
+            "problemMatcher": []
+        },
+        {
+            "label": "copyfiles",
+            "type": "shell",
+            "group": "none",
+            "detail": "rsync the built plugin to the Deck",
+            "dependsOn": ["chmodplugins"],
+            "command": "rsync -azp --delete --exclude 'node_modules' --exclude 'src' --exclude '.git' --exclude '.vscode' --rsh='ssh -p ${config:deckport} ${config:deckkey}' ./ ${config:deckuser}@${config:deckip}:${config:deckdir}/homebrew/plugins/${config:pluginname}/",
+            "problemMatcher": []
+        },
+        {
+            "label": "restartdecky",
+            "type": "shell",
+            "group": "none",
+            "detail": "Restart the Decky plugin loader so it picks up the new build",
+            "command": "ssh -p ${config:deckport} ${config:deckkey} ${config:deckuser}@${config:deckip} 'echo ${config:deckpass} | sudo -S systemctl restart plugin_loader'",
+            "problemMatcher": []
+        },
+        // All-in-one
+        {
+            "label": "deploy",
+            "detail": "Copy the built plugin to the Deck and restart Decky",
+            "dependsOrder": "sequence",
+            "group": "none",
+            "dependsOn": ["copyfiles", "restartdecky"],
+            "problemMatcher": []
+        },
+        {
+            "label": "builddeploy",
+            "detail": "Build and deploy in one go",
+            "dependsOrder": "sequence",
+            "group": "none",
+            "dependsOn": ["build", "deploy"],
+            "problemMatcher": []
+        }
+    ]
+}

@@ -1,0 +1,22 @@
+node_modules
+.pnpm-store
+dist/
+__pycache__/
+*.pyc
+
+.DS_Store
+*.log
+
+# Local SSH deploy settings (host/user/password) — never commit these.
+.vscode/settings.json
+
+# Decky CLI / build output, if ever used
+cli/
+out/
+
+# Zips produced by package.sh
+packages/
+
+# Claude Code project context — not for the repo
+CLAUDE.md
+.claude/

@@ -1,0 +1,12 @@
+{
+    "deckip"    : "steamdeck.local",
+    "deckport"  : "22",
+    "deckuser"  : "deck",
+    "deckpass"  : "CHANGE-ME",
+    "deckkey"   : "-i ${env:HOME}/.ssh/id_rsa",
+    "deckdir"   : "/home/deck",
+    "pluginname": "decky-nvidia-update",
+    "python.analysis.extraPaths": [
+        "./py_modules"
+    ]
+}
