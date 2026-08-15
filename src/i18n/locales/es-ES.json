@@ -48,5 +48,20 @@
   "toast_failed_body_default": "Consulta el registro para más detalles.",
   "toast_already_running_title": "Ya en curso",
   "toast_already_running_body": "Ya hay una actualización en curso.",
-  "toast_update_available_title": "Actualización de driver NVIDIA disponible"
+  "toast_update_available_title": "Actualización de driver NVIDIA disponible",
+  "plugin_update_banner": "Actualización del plugin disponible: {{version}}",
+  "plugin_update_section_label": "Actualización del plugin",
+  "plugin_update_current": "Versión actual: {{version}}",
+  "plugin_update_latest": "Última versión: {{version}}",
+  "plugin_update_up_to_date": "El plugin está actualizado",
+  "plugin_update_check_failed": "No se pudo comprobar actualizaciones ahora mismo",
+  "plugin_update_view_release": "Ver la versión",
+  "plugin_update_check_button": "Buscar actualizaciones",
+  "plugin_update_checking": "Comprobando…",
+  "plugin_update_install_button": "Actualizar a {{version}}",
+  "plugin_update_installing": "Instalando…",
+  "plugin_update_downloading": "Descargando…",
+  "plugin_update_install_failed_title": "Actualización del plugin fallida",
+  "plugin_update_no_backend": "El instalador de Decky no está disponible ahora mismo.",
+  "plugin_update_install_timeout": "Sin respuesta de Decky Loader — la instalación puede haberse bloqueado. Inténtalo de nuevo."
 }

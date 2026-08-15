@@ -11,6 +11,8 @@ from typing import Any, Dict, List, Optional
 
 import decky
 
+from .plugin_updater import PluginUpdaterMixin
+
 # The plugin ships its own copy of the CLI tool (bin/steamos-nvidia-update.sh)
 # so the exact same script can be run by hand over SSH/terminal or driven
 # from this UI — one mechanism, two ways to trigger it.
@@ -118,7 +120,7 @@ ERROR_CODE_MARKERS = {
 }
 
 
-class Plugin:
+class Plugin(PluginUpdaterMixin):
     # Mutable per-instance state (one update can run at a time).
     _state: Dict[str, Any] = dict(DEFAULT_STATE)
     _lock = asyncio.Lock()

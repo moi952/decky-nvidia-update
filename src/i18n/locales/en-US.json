@@ -48,5 +48,20 @@
   "toast_failed_body_default": "See the log for details.",
   "toast_already_running_title": "Already running",
   "toast_already_running_body": "An update is already in progress.",
-  "toast_update_available_title": "NVIDIA driver update available"
+  "toast_update_available_title": "NVIDIA driver update available",
+  "plugin_update_banner": "Plugin update available: {{version}}",
+  "plugin_update_section_label": "Plugin update",
+  "plugin_update_current": "Current version: {{version}}",
+  "plugin_update_latest": "Latest version: {{version}}",
+  "plugin_update_up_to_date": "Plugin is up to date",
+  "plugin_update_check_failed": "Couldn't check for updates right now",
+  "plugin_update_view_release": "View release",
+  "plugin_update_check_button": "Check for updates",
+  "plugin_update_checking": "Checking…",
+  "plugin_update_install_button": "Update to {{version}}",
+  "plugin_update_installing": "Installing…",
+  "plugin_update_downloading": "Downloading…",
+  "plugin_update_install_failed_title": "Plugin update failed",
+  "plugin_update_no_backend": "Decky's installer isn't reachable right now.",
+  "plugin_update_install_timeout": "No response from Decky Loader — the install may have stalled. Try again."
 }
