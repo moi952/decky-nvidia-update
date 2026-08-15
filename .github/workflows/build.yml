@@ -38,6 +38,7 @@ jobs:
                   cp -r dist artifact/$PLUGIN_NAME/
                   cp main.py plugin.json package.json artifact/$PLUGIN_NAME/
                   cp -r py_modules artifact/$PLUGIN_NAME/
+                  cp -r bin artifact/$PLUGIN_NAME/
                   cp LICENSE* README* artifact/$PLUGIN_NAME/ || true
 
             - name: Slugify branch name

@@ -226,6 +226,20 @@ function Content() {
     call<[Settings], boolean>("save_settings", next);
   };
 
+  // Defensive fallback: list_driver_versions() (the collapsed list, driven
+  // by the LOCAL bin/steamos-nvidia-update.sh --list) and
+  // list_driver_versions_detailed() (an independent direct curl to
+  // archive.archlinux.org) can fail independently of each other — this
+  // really happened once when a broken release zip shipped without bin/ at
+  // all, silently emptying just the collapsed list and leaving the dropdown
+  // with nothing to show. Deriving a collapsed list from the detailed one
+  // whenever the former comes back empty means a single missing/failing
+  // script never fully blanks the picker.
+  const effectiveVersions =
+    versions.length > 0
+      ? versions
+      : Array.from(new Set(detailedVersions.map((v) => v.replace(/-\d+$/, ""))));
+
   // "Latest" for the up-to-date/update-available check and badge, scoped to
   // the channel the user has chosen as default (recommended/NFB/beta) — not
   // just the plain Arch-stable pick, otherwise picking e.g. NFB as the
@@ -453,7 +467,7 @@ function Content() {
       </PanelSectionRow>
       <PanelSectionRow>
         <VersionDropdown
-          versions={versions}
+          versions={effectiveVersions}
           detailedVersions={detailedVersions}
           showBuildNumbers={showBuildNumbers}
           repoInfo={repoInfo}
