@@ -22,6 +22,14 @@ SCRIPT_PATH = Path(decky.DECKY_PLUGIN_DIR) / "bin" / "steamos-nvidia-update.sh"
 # instead of screenshotting the UI's scrollback. Overwritten each run.
 LOG_FILE = Path(decky.DECKY_PLUGIN_LOG_DIR) / "nvidia-update-run.log"
 
+# README's own documented requirement: SteamOS's stock 5GiB rootfs-A/B has
+# no headroom for a driver install; steamos-nvidia-installer grows it to at
+# least 8GiB. Checking the partition's TOTAL size (not just what's free
+# right now) catches a still-stock-5GiB system even when it currently has
+# plenty of free space — a little under 8192 MiB to allow for filesystem
+# overhead in what `df` reports on an actually-grown 8GiB partition.
+ROOTFS_MIN_TOTAL_MB = 7600
+
 SETTINGS_FILE = Path(decky.DECKY_PLUGIN_SETTINGS_DIR) / "settings.json"
 DEFAULT_SETTINGS: Dict[str, Any] = {
     "show_build_numbers": False,
@@ -185,6 +193,42 @@ class Plugin(PluginUpdaterMixin):
             }
         except Exception as e:
             decky.logger.error(f"[get_driver_repo_info] {e}")
+            return empty
+
+    async def get_rootfs_space_info(self) -> Dict[str, Any]:
+        """Upfront, purely informational check the UI uses to warn BEFORE
+        starting an install — not a substitute for the script's own late-stage
+        space check (right before the real install copy, once the exact
+        payload size is known), which stays the actual safety net. This just
+        avoids spending the whole DKMS build only to fail at the very end
+        on a partition that was obviously too small from the start.
+
+        Re-runs the same best-effort btrfs grow _main() does on plugin load
+        (rather than relying on that having already finished by the time the
+        frontend calls this) so a session where the GPT partition was grown
+        but the filesystem hadn't caught up yet doesn't get a false
+        "undersized" warning from a stale, pre-grow `df` reading."""
+        await self._grow_rootfs_best_effort()
+        empty = {"total_mb": 0, "avail_mb": 0, "undersized": False}
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "df", "-m", "--output=size,avail", "/",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL,
+                env=_clean_env(),
+            )
+            out, _ = await proc.communicate()
+            if proc.returncode != 0:
+                return empty
+            lines = out.decode(errors="replace").strip().splitlines()
+            total_mb, avail_mb = (int(x) for x in lines[-1].split())
+            return {
+                "total_mb": total_mb,
+                "avail_mb": avail_mb,
+                "undersized": total_mb < ROOTFS_MIN_TOTAL_MB,
+            }
+        except Exception as e:
+            decky.logger.error(f"[get_rootfs_space_info] {e}")
             return empty
 
     async def get_nvidia_branch_info(self) -> Dict[str, Any]:

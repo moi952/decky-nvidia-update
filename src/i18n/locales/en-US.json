@@ -28,7 +28,7 @@
   "step_2_desc": "Selecting driver version",
   "step_3_desc": "Resolving driver packages from Arch Linux ({{version}})",
   "step_4_desc": "Checking glibc compatibility",
-  "step_5_desc": "Building the driver (overlay chroot + dkms, this takes 10-20 min)",
+  "step_5_desc": "Building the driver (overlay chroot + dkms, this can take a few minutes)",
   "step_6_desc": "Computing payload file list",
   "step_7_desc": "Installing into the running system (brief rootfs unlock)",
   "step_8_desc": "Final verification",
@@ -63,5 +63,9 @@
   "plugin_update_downloading": "Downloading…",
   "plugin_update_install_failed_title": "Plugin update failed",
   "plugin_update_no_backend": "Decky's installer isn't reachable right now.",
-  "plugin_update_install_timeout": "No response from Decky Loader — the install may have stalled. Try again."
+  "plugin_update_install_timeout": "No response from Decky Loader — the install may have stalled. Try again.",
+  "rootfs_warning_title": "Partition may be too small",
+  "rootfs_warning_body": "Root partition: ~{{size}} (recommended minimum: 8GiB). The install may fail from lack of space. Grow rootfs-A/B with steamos-nvidia-installer if needed.",
+  "rootfs_warning_install_anyway": "Install anyway",
+  "rootfs_warning_cancel": "Cancel"
 }

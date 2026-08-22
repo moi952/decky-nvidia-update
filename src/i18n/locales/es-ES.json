@@ -28,7 +28,7 @@
   "step_2_desc": "Seleccionando la versión del driver",
   "step_3_desc": "Resolviendo paquetes del driver desde Arch Linux ({{version}})",
   "step_4_desc": "Comprobando compatibilidad con glibc",
-  "step_5_desc": "Compilando el driver (chroot overlay + dkms, tarda 10-20 min)",
+  "step_5_desc": "Compilando el driver (chroot overlay + dkms, puede tardar unos minutos)",
   "step_6_desc": "Calculando la lista de archivos a instalar",
   "step_7_desc": "Instalando en el sistema activo (desbloqueo breve del rootfs)",
   "step_8_desc": "Verificación final",
@@ -63,5 +63,9 @@
   "plugin_update_downloading": "Descargando…",
   "plugin_update_install_failed_title": "Actualización del plugin fallida",
   "plugin_update_no_backend": "El instalador de Decky no está disponible ahora mismo.",
-  "plugin_update_install_timeout": "Sin respuesta de Decky Loader — la instalación puede haberse bloqueado. Inténtalo de nuevo."
+  "plugin_update_install_timeout": "Sin respuesta de Decky Loader — la instalación puede haberse bloqueado. Inténtalo de nuevo.",
+  "rootfs_warning_title": "Partición quizás demasiado pequeña",
+  "rootfs_warning_body": "Partición raíz: ~{{size}} (mínimo recomendado: 8 GiB). La instalación podría fallar por falta de espacio. Agranda rootfs-A/B con steamos-nvidia-installer si es necesario.",
+  "rootfs_warning_install_anyway": "Instalar de todos modos",
+  "rootfs_warning_cancel": "Cancelar"
 }

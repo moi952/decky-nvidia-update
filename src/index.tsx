@@ -29,6 +29,7 @@ import { SeparatedBlock } from "./SeparatedBlock";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { PluginUpdateBanner, PluginUpdateSection } from "./PluginUpdate";
 import type { PluginUpdateInfo } from "./PluginUpdate";
+import { openRootfsSpaceWarningModal } from "./RootfsSpaceWarningModal";
 import { SiNvidia } from "react-icons/si";
 import {
   FaCheckCircle,
@@ -93,6 +94,12 @@ type Settings = {
   show_build_numbers: boolean;
   default_channel: DefaultChannelChoice;
   channel_filters_expanded: boolean;
+};
+
+type RootfsSpaceInfo = {
+  total_mb: number;
+  avail_mb: number;
+  undersized: boolean;
 };
 
 const IDLE_REPO_INFO: RepoInfo = {
@@ -160,6 +167,8 @@ function Content() {
     useState<boolean>(false);
   const [pluginUpdateExpanded, setPluginUpdateExpanded] =
     useState<boolean>(false);
+  const [rootfsSpaceInfo, setRootfsSpaceInfo] =
+    useState<RootfsSpaceInfo | null>(null);
   // All checked by default: every classified version is shown; unchecking a
   // category hides just the versions classified into it (an unclassified
   // Arch version is never hidden, whatever the filter state).
@@ -207,6 +216,7 @@ function Content() {
     call<[boolean], PluginUpdateInfo>("get_plugin_update_info", false).then(
       setPluginUpdateInfo,
     );
+    call<[], RootfsSpaceInfo>("get_rootfs_space_info").then(setRootfsSpaceInfo);
   }, []);
   // `selected` is never loaded from persisted settings: opening the plugin
   // should default to whatever is newest right now, not silently re-offer
@@ -340,7 +350,7 @@ function Content() {
       ? chosenVersion === currentVersion
       : chosenVersion === currentVersion.replace(/-\d+$/, ""));
 
-  const onStart = async () => {
+  const startUpdate = async () => {
     // chosenVersion is always already a concrete version (VersionDropdown
     // never reports "latest" as a sentinel, and resolves the testing branch
     // itself when the beta toggle wants it) — nothing special here.
@@ -367,6 +377,23 @@ function Content() {
       // resync with whatever real progress the backend actually has.
       call<[], UpdateStatus>("get_status").then(setStatus);
     }
+  };
+
+  // Gate on the rootfs-size heuristic before ever calling startUpdate: a
+  // system still on SteamOS's stock ~5GiB rootfs-A/B is very likely to fail
+  // (`No space left on device`) — but only after the whole DKMS build,
+  // since the script's own precise check happens right before the
+  // real install copy. Warn upfront instead, but still let the user proceed
+  // (e.g. a driver small enough to fit, or the heuristic being wrong for
+  // their setup) — this is advisory, not a hard block.
+  const onStart = () => {
+    if (rootfsSpaceInfo?.undersized) {
+      openRootfsSpaceWarningModal(rootfsSpaceInfo.total_mb, () =>
+        void startUpdate(),
+      );
+      return;
+    }
+    void startUpdate();
   };
 
   const onReboot = async () => {

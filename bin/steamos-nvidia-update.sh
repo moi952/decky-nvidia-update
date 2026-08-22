@@ -234,7 +234,11 @@ pin_pkg() {
     # traceback into the log instead of a clean, actionable error.
     local json=""
     for attempt in 1 2 3; do
-      json="$(curl -sfL "https://archlinux.org/packages/search/json/?name=$pkg" 2>/dev/null)"
+      # `|| true` is load-bearing under `set -e`: without it, the very
+      # first failed attempt (e.g. archlinux.org's occasional plain 502)
+      # exits the whole script right here with curl's own raw exit code —
+      # before this loop ever gets to retry, defeating the retry entirely.
+      json="$(curl -sfL "https://archlinux.org/packages/search/json/?name=$pkg" 2>/dev/null)" || true
       [[ -n "$json" ]] && break
       (( attempt < 3 )) && sleep 2
     done
@@ -258,7 +262,10 @@ p=r[0]; print(p["pkgver"]+"-"+str(p["pkgrel"]), p["filename"], p["repo"])' 2>/de
     # lumping both into one ambiguous "bad --driver value, or no network".
     local html=""
     for attempt in 1 2 3; do
-      html="$(curl -sfL "$ARCHIVE_URL/${pkg:0:1}/$pkg/" 2>/dev/null)"
+      # Same `set -e` trap as the "latest" branch above — `|| true` keeps a
+      # single failed attempt from killing the script before the retry
+      # loop gets a chance to run again.
+      html="$(curl -sfL "$ARCHIVE_URL/${pkg:0:1}/$pkg/" 2>/dev/null)" || true
       [[ -n "$html" ]] && break
       (( attempt < 3 )) && sleep 2
     done
@@ -287,8 +294,11 @@ p=r[0]; print(p["pkgver"]+"-"+str(p["pkgrel"]), p["filename"], p["repo"])' 2>/de
 # (packages here run ~280-300 MB; a silent multi-minute curl looks frozen).
 fetch_one() {
   local url="$1" dest="$2" total have pct pid rc
+  # Purely cosmetic (falls back to a plain MB counter below if empty) —
+  # `|| true` so a network hiccup on this HEAD request can't take down the
+  # whole run under `set -e`/`pipefail` over what's just a progress display.
   total="$(curl -sIL "$url" 2>/dev/null | tr -d '\r' \
-    | awk 'BEGIN{IGNORECASE=1} /^content-length:/{v=$2} END{print v}')"
+    | awk 'BEGIN{IGNORECASE=1} /^content-length:/{v=$2} END{print v}')" || true
   curl -sfL "$url" -o "$dest" &
   pid=$!
   while kill -0 "$pid" 2>/dev/null; do
@@ -370,7 +380,7 @@ log "OK: payload needs at most glibc $MAX_GLIBC"
 rm -rf "$SCAN"
 
 # ------------------------------------------------- step 5: build in overlay
-step "Building the driver (overlay chroot + dkms, this takes 10-20 min)"
+step "Building the driver (overlay chroot + dkms, this can take a few minutes)"
 
 # lowerdir is the LIVE running root — read-only access, never written here.
 # All build residue (headers, dkms, gcc, the new driver files) lands in

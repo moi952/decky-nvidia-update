@@ -28,7 +28,7 @@
   "step_2_desc": "Sélection de la version du pilote",
   "step_3_desc": "Résolution des paquets du pilote depuis Arch Linux ({{version}})",
   "step_4_desc": "Vérification de la compatibilité glibc",
-  "step_5_desc": "Compilation du pilote (chroot overlay + dkms, ça prend 10-20 min)",
+  "step_5_desc": "Compilation du pilote (chroot overlay + dkms, ça peut prendre quelques minutes)",
   "step_6_desc": "Calcul de la liste des fichiers à installer",
   "step_7_desc": "Installation dans le système actif (déverrouillage bref du rootfs)",
   "step_8_desc": "Vérification finale",
@@ -63,5 +63,9 @@
   "plugin_update_downloading": "Téléchargement…",
   "plugin_update_install_failed_title": "Échec de la mise à jour du plugin",
   "plugin_update_no_backend": "L'installeur de Decky n'est pas joignable pour le moment.",
-  "plugin_update_install_timeout": "Aucune réponse de Decky Loader — l'installation a peut-être échoué. Réessaie."
+  "plugin_update_install_timeout": "Aucune réponse de Decky Loader — l'installation a peut-être échoué. Réessaie.",
+  "rootfs_warning_title": "Partition peut-être trop petite",
+  "rootfs_warning_body": "Partition racine : ~{{size}} (minimum recommandé : 8 Go). L'installation peut échouer faute d'espace. Agrandis rootfs-A/B avec steamos-nvidia-installer si besoin.",
+  "rootfs_warning_install_anyway": "Installer quand même",
+  "rootfs_warning_cancel": "Annuler"
 }
