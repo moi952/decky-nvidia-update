@@ -40,8 +40,10 @@ jobs:
             - name: Check standalone controller
               run: |
                   export PYTHONDONTWRITEBYTECODE=1
+                  command -v rsync >/dev/null
                   python -m unittest discover -s tests -v
                   sudo env PYTHONDONTWRITEBYTECODE=1 "$(command -v python)" -m unittest discover -s tests -p test_cache.py -v
+                  sudo env PYTHONDONTWRITEBYTECODE=1 "$(command -v python)" -m unittest discover -s tests -p 'test_etc_*.py' -v
                   for script in bin/steamos-nvidia-update.sh bin/standalone/*.sh; do bash -n "$script"; done
 
             - name: Build plugin
@@ -51,6 +53,9 @@ jobs:
                   node tests/driver_dropdown.cjs
                   node tests/dropdown_geometry.cjs
                   node tests/plugin_updates.cjs
+                  node tests/driver_operation.cjs
+                  node tests/scroll_hint.cjs
+                  node tests/controller_scroll.cjs
                   pnpm build
 
             - name: Create plugin zip

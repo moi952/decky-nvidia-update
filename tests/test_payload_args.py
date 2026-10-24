@@ -79,14 +79,15 @@ class WorkerArgv(unittest.TestCase):
 
     def test_arch_install_omits_pins(self):
         argv = self.worker_argv('stage.sh', WORK, pins='')
-        self.assertEqual(argv, [self.payload, WORK + '/build', '--target', WORK + '/root',
+        # A driver change builds with the running system's pacman settings, in the build overlay only.
+        self.assertEqual(argv, [self.payload, WORK + '/build', '--target', WORK + '/root', '--build-etc', '/etc',
                                 '--kernel', KERNEL, '--driver', DRIVER, '--force', '-y'])
         self.assert_reaches_preflight(argv[2:])
 
     def test_custom_build_passes_pin_file(self):
         pins = WORK + '/custom-pins.json'
         argv = self.worker_argv('stage.sh', WORK, pins=pins)
-        self.assertEqual(argv, [self.payload, WORK + '/build', '--target', WORK + '/root',
+        self.assertEqual(argv, [self.payload, WORK + '/build', '--target', WORK + '/root', '--build-etc', '/etc',
                                 '--kernel', KERNEL, '--driver', DRIVER, '--pins', pins, '--force', '-y'])
         self.assert_reaches_preflight(argv[2:])
 

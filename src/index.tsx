@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   definePlugin,
   call,
@@ -6,6 +6,12 @@ import {
   removeEventListener,
 } from "@decky/api";
 import { pluginToast } from "./utils/toast";
+import {
+  launchErrorTitle,
+  requestOperation,
+  withTimeout,
+} from "./utils/driverOperation";
+import type { LaunchResult } from "./utils/driverOperation";
 import {
   PanelSection,
   PanelSectionRow,
@@ -45,6 +51,8 @@ import type {
   DefaultChannelChoice,
 } from "./VersionDropdown";
 import { ReleaseNotesModal } from "./ReleaseNotesModal";
+import { UpdateLogModal } from "./UpdateLogModal";
+import { HelpIndex, helpProps } from "./ContextHelp";
 import { SeparatedBlock } from "./SeparatedBlock";
 import { CollapsibleSection } from "./CollapsibleSection";
 import type { CustomBuild } from "./CustomBuildSection";
@@ -63,6 +71,7 @@ import {
 
 type UpdateStatus = {
   action?: string;
+  pending_reboot?: boolean;
   running: boolean;
   step: number;
   total_steps: number;
@@ -89,6 +98,7 @@ const IDLE_STATUS: UpdateStatus = {
   error: null,
   error_code: null,
   driver_spec: null,
+  pending_reboot: false,
 };
 
 // Mirrors bin/steamos-nvidia-build.sh's own state shape (see
@@ -124,22 +134,6 @@ type CheckResult = {
   buildable: boolean;
   missing_files: string[];
 };
-
-// The bash script's own step() text is English-only (plain bash has no
-// i18n) — status.step is a reliable, language-independent index (1-8)
-// instead, mapped here to a translated description for display. The raw
-// English status.message is only ever used as a defensive fallback if step
-// is somehow out of this range.
-const STEP_DESCRIPTION_KEYS = [
-  "step_1_desc",
-  "step_2_desc",
-  "step_3_desc",
-  "step_4_desc",
-  "step_5_desc",
-  "step_6_desc",
-  "step_7_desc",
-  "step_8_desc",
-];
 
 type RepoInfo = {
   stable: string;
@@ -188,7 +182,6 @@ function Content() {
   const [repoInfo, setRepoInfo] = useState<RepoInfo>(IDLE_REPO_INFO);
   const [defaultChannel, setDefaultChannel] =
     useState<DefaultChannelChoice>("all");
-  const [logPath, setLogPath] = useState<string>("");
   const [versions, setVersions] = useState<string[]>([]);
   const [detailedVersions, setDetailedVersions] = useState<string[]>([]);
   const [showBuildNumbers, setShowBuildNumbers] = useState<boolean>(false);
@@ -199,7 +192,8 @@ function Content() {
   const [loadingVersions, setLoadingVersions] = useState<boolean>(true);
   const [status, setStatus] = useState<UpdateStatus>(IDLE_STATUS);
   const [statusLoaded, setStatusLoaded] = useState(false);
-  const [showLog, setShowLog] = useState<boolean>(false);
+  const statusEpoch = useRef(0);
+  const [requestPending, setRequestPending] = useState(false);
   const [nvidiaVersions, setNvidiaVersions] = useState<NvidiaVersionMap>(
     () => cachedNvidiaVersions ?? IDLE_NVIDIA_VERSIONS,
   );
@@ -249,16 +243,46 @@ function Content() {
     });
   };
 
+  const refreshStatus = async () => {
+    const epoch = statusEpoch.current;
+    try {
+      const data = await withTimeout(call<[], UpdateStatus>("get_status"));
+      if (epoch === statusEpoch.current) {
+        setStatus(data);
+        setStatusLoaded(true);
+      }
+    } catch (error) {
+      if (epoch === statusEpoch.current) setStatusLoaded(false);
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    let closed = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      const epoch = statusEpoch.current;
+      try {
+        const data = await withTimeout(call<[], UpdateStatus>("get_status"));
+        if (!closed && epoch === statusEpoch.current) {
+          setStatus(data);
+          setStatusLoaded(true);
+        }
+      } catch {
+        if (!closed && epoch === statusEpoch.current) setStatusLoaded(false);
+      }
+      if (!closed) timer = setTimeout(poll, 5000);
+    };
+    void poll();
+    return () => {
+      closed = true;
+      clearTimeout(timer);
+    };
+  }, []);
+
   useEffect(() => {
     call<[], string>("get_current_version").then(setCurrentVersion);
     call<[], RepoInfo>("get_driver_repo_info").then(setRepoInfo);
-    call<[], UpdateStatus>("get_status")
-      .then((data) => {
-        setStatus(data);
-        setStatusLoaded(true);
-      })
-      .catch(() => setStatusLoaded(false));
-    call<[], string>("get_log_path").then(setLogPath);
     call<[], string[]>("list_driver_versions_detailed").then((v) => {
       console.log(`[nvidia-update] Arch detailed versions (${v.length}):`, v);
       setDetailedVersions(v);
@@ -397,6 +421,7 @@ function Content() {
 
   useEffect(() => {
     const listener = (data: UpdateStatus) => {
+      statusEpoch.current++;
       setStatus(data);
       setStatusLoaded(true);
     };
@@ -416,10 +441,20 @@ function Content() {
       call<[], string>("get_current_version").then(setCurrentVersion);
       refreshCustomBuilds();
       pluginToast({
-        title: t("toast_installed_title"),
-        body: t("toast_installed_body"),
+        title: t(
+          status.action === "rollback"
+            ? "rollback_ready"
+            : "toast_installed_title",
+        ),
+        body: t(
+          status.pending_reboot === false
+            ? "no_restart_pending"
+            : status.action === "rollback"
+              ? "rollback_restart_body"
+              : "toast_installed_body",
+        ),
       });
-    } else {
+    } else if (status.error_code !== "launch_failed") {
       pluginToast({
         title: t("toast_failed_title"),
         body:
@@ -521,52 +556,81 @@ function Content() {
     // second click confusingly reports "already running" with nothing
     // having visibly happened yet.
     setStatus({ ...IDLE_STATUS, running: true, message: "Starting…" });
+    statusEpoch.current++;
 
-    const ok = await call<[string, boolean, boolean], boolean>(
-      "start_update",
-      spec,
-      false,
-      needsBuild ||
-        (customBuilds.some((b) => b.version === spec.replace(/-\d+$/, "")) &&
-          !effectiveVersions.includes(spec.replace(/-\d+$/, ""))),
+    const result = await requestOperation(
+      () =>
+        call<[string, boolean, boolean], LaunchResult>(
+          "request_update",
+          spec,
+          false,
+          needsBuild ||
+            (customBuilds.some(
+              (b) => b.version === spec.replace(/-\d+$/, ""),
+            ) &&
+              !effectiveVersions.includes(spec.replace(/-\d+$/, ""))),
+        ),
+      refreshStatus,
     );
-    if (!ok) {
+    if (!result.started) {
       pluginToast({
-        title: t("toast_already_running_title"),
-        body: t("toast_already_running_body"),
+        title: t(launchErrorTitle(result.code)),
+        body: result.message || t("toast_failed_body_default"),
       });
-      // Our optimistic guess was wrong (something was already running) —
-      // resync with whatever real progress the backend actually has.
-      call<[], UpdateStatus>("get_status").then(setStatus);
     }
   };
 
   const onStart = async (specOverride?: string) => {
-    const info = await call<[], RootfsSpaceInfo>("get_rootfs_space_info");
-    if (!info.available || info.undersized) {
+    setRequestPending(true);
+    try {
+      const info = await withTimeout(
+        call<[], RootfsSpaceInfo>("get_rootfs_space_info"),
+      );
+      if (!info.available || info.undersized) {
+        pluginToast({
+          title: t("failed_title"),
+          body:
+            info.error ||
+            t("home_space_required", {
+              required: (info.required_mb / 1024).toFixed(1),
+              available: (info.avail_mb / 1024).toFixed(1),
+            }),
+        });
+        return;
+      }
+      await startUpdate(specOverride);
+    } catch {
+      setStatusLoaded(false);
       pluginToast({
-        title: t("failed_title"),
-        body:
-          info.error ||
-          t("home_space_required", {
-            required: (info.required_mb / 1024).toFixed(1),
-            available: (info.avail_mb / 1024).toFixed(1),
-          }),
+        title: t("operation_request_failed"),
+        body: t("status_unavailable"),
       });
-      return;
+    } finally {
+      setRequestPending(false);
     }
-    void startUpdate(specOverride);
   };
 
   const onRollback = async () => {
-    const ok = await call<[], boolean>("rollback_driver");
-    if (ok)
-      setStatus({
-        ...IDLE_STATUS,
-        running: true,
-        message: t("rollback_running"),
-      });
-    else call<[], UpdateStatus>("get_status").then(setStatus);
+    setRequestPending(true);
+    statusEpoch.current++;
+    setStatus({
+      ...IDLE_STATUS,
+      running: true,
+      message: t("rollback_running"),
+    });
+    try {
+      const result = await requestOperation(
+        () => call<[], LaunchResult>("request_rollback"),
+        refreshStatus,
+      );
+      if (!result.started)
+        pluginToast({
+          title: t(launchErrorTitle(result.code)),
+          body: result.message || t("toast_failed_body_default"),
+        });
+    } finally {
+      setRequestPending(false);
+    }
   };
 
   const onReboot = async () => {
@@ -587,7 +651,10 @@ function Content() {
       <SettingsView
         onBack={() => setView("main")}
         pluginUpdateBlocked={
-          !statusLoaded || status.running || buildStatus.running
+          !statusLoaded ||
+          requestPending ||
+          status.running ||
+          buildStatus.running
         }
       />
     );
@@ -596,6 +663,22 @@ function Content() {
   return (
     <>
       <PanelSection>
+        {!statusLoaded && (
+          <PanelSectionRow>
+            <div style={{ fontSize: 12, marginBottom: 8 }}>
+              {t("status_unavailable")}
+            </div>
+            <ButtonItem
+              layout="below"
+              onClick={() => {
+                void refreshStatus().catch(() => {});
+              }}
+              {...helpProps("reconnect")}
+            >
+              {t("reconnect_status")}
+            </ButtonItem>
+          </PanelSectionRow>
+        )}
         <PanelSectionRow>
           <div
             style={{
@@ -612,9 +695,14 @@ function Content() {
                 NVIDIA Driver
               </span>
             </div>
-            <ActionButton onClick={goToSettings}>
-              <FaCog size={14} />
-            </ActionButton>
+            <div style={{ display: "flex", gap: 8 }}>
+              <ActionButton onClick={() => showModal(<HelpIndex />)}>
+                <FaInfoCircle size={14} />
+              </ActionButton>
+              <ActionButton onClick={goToSettings} {...helpProps("settings")}>
+                <FaCog size={14} />
+              </ActionButton>
+            </div>
           </div>
         </PanelSectionRow>
       </PanelSection>
@@ -759,6 +847,7 @@ function Content() {
           <ButtonItem
             layout="below"
             onClick={onShowReleaseNotes}
+            {...helpProps("notes")}
             disabled={!notesEntry}
           >
             {t("release_notes_button")}
@@ -769,7 +858,10 @@ function Content() {
           <ButtonItem
             layout="below"
             onClick={() => onStart()}
+            {...helpProps("install")}
             disabled={
+              !statusLoaded ||
+              requestPending ||
               status.running ||
               buildStatus.running ||
               loadingVersions ||
@@ -794,6 +886,14 @@ function Content() {
           </ButtonItem>
         </PanelSectionRow>
 
+        {selectedIsInstalled && !status.running && !buildStatus.running && (
+          <PanelSectionRow>
+            <div style={{ fontSize: 12, color: "#b8bcbf" }}>
+              {t("already_installed_notice")}
+            </div>
+          </PanelSectionRow>
+        )}
+
         {(status.running || buildStatus.running) && (
           <PanelSectionRow>
             <SeparatedBlock bottomBorder={false}>
@@ -809,12 +909,7 @@ function Content() {
                 {buildStatus.running
                   ? `${t("step_label", { step: buildStatus.step, total: buildStatus.total_steps })}${buildStatus.message ? ` — ${buildStatus.message}` : ""}`
                   : `${t("step_label", { step: status.step, total: status.total_steps })}${
-                      status.step >= 1 &&
-                      status.step <= STEP_DESCRIPTION_KEYS.length
-                        ? ` — ${status.message}`
-                        : status.message
-                          ? ` — ${status.message}`
-                          : ""
+                      status.message ? ` — ${status.message}` : ""
                     }`}
               </div>
               <div
@@ -879,25 +974,34 @@ function Content() {
                   )}
                 </div>
                 <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 14 }}>
-                  {t("done_body")}
+                  {t(
+                    status.pending_reboot === false
+                      ? "no_restart_pending"
+                      : status.action === "rollback"
+                        ? "rollback_restart_body"
+                        : "done_body",
+                  )}
                 </div>
-                <ButtonItem
-                  layout="below"
-                  bottomSeparator="none"
-                  highlightOnFocus={false}
-                  onClick={onReboot}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                    }}
+                {status.pending_reboot !== false && (
+                  <ButtonItem
+                    layout="below"
+                    bottomSeparator="none"
+                    highlightOnFocus={false}
+                    onClick={onReboot}
+                    {...helpProps("reboot")}
                   >
-                    <FaPowerOff /> {t("reboot_button")}
-                  </div>
-                </ButtonItem>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 6,
+                      }}
+                    >
+                      <FaPowerOff /> {t("reboot_button")}
+                    </div>
+                  </ButtonItem>
+                )}
               </div>
             </SeparatedBlock>
           </PanelSectionRow>
@@ -937,39 +1041,15 @@ function Content() {
           </PanelSectionRow>
         )}
 
-        {status.log.length > 0 && (
-          <PanelSectionRow>
-            <CollapsibleSection
-              label={t("log_label", { count: status.log.length })}
-              expanded={showLog}
-              onToggle={() => setShowLog((v) => !v)}
-            >
-              <div
-                style={{
-                  maxHeight: 160,
-                  overflowY: "auto",
-                  fontSize: 10,
-                  fontFamily: "monospace",
-                  whiteSpace: "pre-wrap",
-                  opacity: 0.8,
-                  background: "rgba(0,0,0,0.2)",
-                  padding: 6,
-                  borderRadius: 4,
-                  marginTop: 4,
-                }}
-              >
-                {status.log.slice(-20).join("\n")}
-              </div>
-              {logPath && (
-                <SeparatedBlock>
-                  <div style={{ fontSize: 10, opacity: 0.5 }}>
-                    {t("full_log_label", { path: logPath })}
-                  </div>
-                </SeparatedBlock>
-              )}
-            </CollapsibleSection>
-          </PanelSectionRow>
-        )}
+        <PanelSectionRow>
+          <ButtonItem
+            layout="below"
+            onClick={() => showModal(<UpdateLogModal />)}
+            {...helpProps("log")}
+          >
+            {t("view_log")}
+          </ButtonItem>
+        </PanelSectionRow>
 
         <PanelSectionRow>
           <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 8 }}>
@@ -977,7 +1057,10 @@ function Content() {
           </div>
           <ButtonItem
             layout="below"
-            disabled={status.running || !canRollback}
+            disabled={
+              !statusLoaded || requestPending || status.running || !canRollback
+            }
+            {...helpProps("rollback")}
             onClick={() =>
               showModal(
                 <ConfirmModal
@@ -995,7 +1078,7 @@ function Content() {
         <PanelSectionRow>
           <ToggleField
             label={t("show_builds_label")}
-            description={t("show_builds_desc")}
+            {...helpProps("builds")}
             checked={showBuildNumbers}
             onChange={(v: boolean) => {
               // No explicit reset needed: VersionDropdown's own fallback
@@ -1012,6 +1095,7 @@ function Content() {
         <PanelSectionRow>
           <AnchoredDropdown
             label={t("default_channel_label")}
+            {...helpProps("channel")}
             options={[
               { value: "recommended", label: t("channel_recommended") },
               { value: "nfb", label: t("channel_nfb") },
@@ -1032,6 +1116,7 @@ function Content() {
         <PanelSectionRow>
           <CollapsibleSection
             label={t("channel_filter_label")}
+            helpTopic="filters"
             expanded={showChannelFilters}
             onToggle={() => {
               const next = !showChannelFilters;
@@ -1046,6 +1131,7 @@ function Content() {
                   counts.recommended,
                 )}
                 checked={channelFilters.recommended}
+                {...helpProps("recommended")}
                 onChange={(v: boolean) =>
                   setChannelFilters((f) => ({ ...f, recommended: v }))
                 }
@@ -1055,6 +1141,7 @@ function Content() {
               <ToggleField
                 label={channelFilterLabel(t("channel_nfb"), counts.nfb)}
                 checked={channelFilters.nfb}
+                {...helpProps("nfb")}
                 onChange={(v: boolean) =>
                   setChannelFilters((f) => ({ ...f, nfb: v }))
                 }
@@ -1064,6 +1151,7 @@ function Content() {
               <ToggleField
                 label={channelFilterLabel(t("channel_beta"), counts.beta)}
                 checked={channelFilters.beta}
+                {...helpProps("beta")}
                 onChange={(v: boolean) =>
                   setChannelFilters((f) => ({ ...f, beta: v }))
                 }
@@ -1076,6 +1164,7 @@ function Content() {
                   counts.nvidia_other,
                 )}
                 checked={channelFilters.nvidia_other}
+                {...helpProps("other")}
                 onChange={(v: boolean) =>
                   setChannelFilters((f) => ({ ...f, nvidia_other: v }))
                 }
