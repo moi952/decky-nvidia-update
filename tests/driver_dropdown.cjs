@@ -13,6 +13,7 @@ vm.runInNewContext(compiled, {exports: exportsObject, console, require(name) {
   }};
   if (name === 'react/jsx-runtime') return {jsx(type, props) { return {type, props}; }};
   if (name === '@moi952/decky-ui-kit') return {AnchoredDropdown: 'dropdown'};
+  if (name === './ContextHelp') return {helpProps() { return {}; }};
   throw Error(name);
 }});
 const props = {

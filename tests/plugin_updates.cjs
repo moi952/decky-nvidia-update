@@ -93,6 +93,7 @@ function evaluate(filename, dependencies, globals = {}) {
     'react-icons/fi': {FiArrowLeft: 'arrow'},
     '../utils/githubReleases': {fetchPluginReleases() {}},
     '../utils/links': {FEATURE_REQUEST_URL: '', BUG_REPORT_URL: ''},
+    '../ContextHelp': {HelpScope: 'help-scope', helpProps() { return {}; }},
   });
   const types = node => !node || typeof node !== 'object' ? [] : Array.isArray(node)
     ? node.flatMap(types) : [node.type, ...types(node.props?.children)];

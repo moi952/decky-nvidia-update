@@ -18,10 +18,12 @@ WORKDIR=""
 TARGET=""
 KVER=""
 PINS=""
+BUILD_ETC=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --target)        TARGET="${2:?}"; shift ;;
+    --build-etc)     BUILD_ETC="${2:?}"; shift ;;
     --pins)          PINS="${2:?--pins needs an argument}"; shift ;;
     --kernel)        KVER="${2:?}"; shift ;;
     --driver)        DRIVER_SPEC="${2:?--driver needs an argument}"; shift ;;
@@ -304,13 +306,27 @@ step "Building the driver (overlay chroot + dkms, this can take a few minutes)"
 
 # Build against the prepared target. All compilation residue stays in $UPPER.
 mount -t overlay overlay -o "index=off,lowerdir=$TARGET,upperdir=$UPPER,workdir=$OVLWORK" "$MERGED"
+# A driver change uses the host's current repository and keyring settings.
+# An OS repair defaults to the NEW target's settings and kernel repositories.
+# These build inputs belong only in this disposable overlay, never the base.
+BUILD_ETC=${BUILD_ETC:-"$TARGET/etc"}
+[[ -f "$BUILD_ETC/pacman.conf" && ! -L "$BUILD_ETC/pacman.conf" && -d "$BUILD_ETC/pacman.d" && ! -L "$BUILD_ETC/pacman.d" ]] || die "Unsupported pacman build configuration"
+[[ ! -L "$MERGED/etc" && ! -L "$MERGED/etc/pacman.d" ]] || die "Unsafe pacman build destination"
+# Btrfs exposes compression as an xattr, but the ext4 build upper cannot set
+# or remove it through overlayfs. Keep other metadata, including ACLs; an
+# explicit xattr filter must also retain rsync's default system.* exclusion.
+PACMAN_COPY=(rsync -aHAX --numeric-ids --filter='-x system.*' --filter='-x btrfs.compression')
+rm -f "$MERGED/etc/pacman.conf"
+"${PACMAN_COPY[@]}" "$BUILD_ETC/pacman.conf" "$MERGED/etc/pacman.conf"
+mkdir -p "$MERGED/etc/pacman.d"
+"${PACMAN_COPY[@]}" --delete "$BUILD_ETC/pacman.d/" "$MERGED/etc/pacman.d/"
 mount -t proc proc "$MERGED/proc"
 mount --rbind /sys "$MERGED/sys";  mount --make-rslave "$MERGED/sys"
 mount --rbind /dev "$MERGED/dev";  mount --make-rslave "$MERGED/dev"
 rm -f "$MERGED/etc/resolv.conf"
 cp -L /etc/resolv.conf "$MERGED/etc/resolv.conf"
 
-in_chroot() { chroot "$MERGED" /bin/bash -c "$*"; }
+in_chroot() { python3 -I "$SCRIPT_DIR/initcpio_compat.py" "$MERGED" /bin/bash -c "$*"; }
 
 # --overwrite='*': the overlay's lowerdir is the LIVE system, which can
 # already have stray files at paths dkms/headers/pahole want (e.g. from a
@@ -335,8 +351,8 @@ KPKG_NAME="$(chroot "$TARGET" pacman -Qqo "/usr/lib/modules/$KVER/pkgbase")"
 [[ "$KPKG_NAME" =~ ^linux-neptune[a-zA-Z0-9_-]*$ ]] || die "Unsupported kernel package"
 KPKG_VERREL="$(chroot "$TARGET" pacman -Q "$KPKG_NAME" | awk '{print $2}')"
 
-JUPITER_REPO="$(awk -F'[][]' '/^\[jupiter-/{print $2; exit}' "$TARGET/etc/pacman.conf")"
-MIRROR="$(awk '/^Server/{print $3; exit}' "$TARGET/etc/pacman.d/mirrorlist")"
+JUPITER_REPO="$(awk -F'[][]' '/^\[jupiter-/{print $2; exit}' "$MERGED/etc/pacman.conf")"
+MIRROR="$(awk '/^Server/{print $3; exit}' "$MERGED/etc/pacman.d/mirrorlist")"
 HDR_URL="${MIRROR/\$repo/$JUPITER_REPO}"
 HDR_URL="${HDR_URL/\$arch/x86_64}/${KPKG_NAME}-headers-${KPKG_VERREL}-x86_64.pkg.tar.zst"
 curl -sfIL "$HDR_URL" -o /dev/null || die "Exact-match headers not found in Valve's pool: $HDR_URL"
@@ -400,6 +416,11 @@ for pkg in "${NEW_PKGS[@]}"; do in_chroot "pacman -Qlq $pkg" >> "$FILELIST"; don
 
 sed 's|^/||' "$FILELIST" > "$FILELIST.rel"
 python3 -I "$SCRIPT_DIR/phase.py" trim "$TARGET" "$FILELIST.rel"
+# Never export build-only repository/keyring inputs through a dependency's
+# package file list. A driver payload must not replace the package manager.
+if grep -Eq '^etc/pacman(\.conf(/|$)|\.d(/|$))' "$FILELIST.rel"; then
+  die "Driver payload unexpectedly includes pacman configuration"
+fi
 
 # The destination is disposable or an inactive, disabled OS slot. Reclaim
 # obsolete files here before copying; never do this on the running root.

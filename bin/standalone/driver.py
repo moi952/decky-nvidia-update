@@ -282,9 +282,24 @@ def protect(slot):
     run('sync', '-f', '/esp/SteamOS/conf')
 
 
+def transaction_status():
+    data = read_state()
+    data['active_slot'] = run('steamos-bootconf', 'this-image')
+    data['selected_slot'] = run('steamos-bootconf', 'selected-image')
+    expected = (data.get('source') if data.get('status') == 'rollback-selected'
+                else data.get('target') if data.get('status') == 'ready' else None)
+    data['pending_reboot'] = (expected in ('A', 'B') and
+                              data['selected_slot'] == expected and
+                              data['active_slot'] in ('A', 'B') and
+                              data['active_slot'] != expected)
+    return data
+
+
 def install(version, operation_id=None, custom=False):
     if version != 'latest' and not VERSION.fullmatch(version):
         raise ValueError('Invalid driver version')
+    if not custom:
+        print('[phase] preflight Checking the system', flush=True)
     info = preflight()
     if not info['enough_space']:
         raise ValueError(f"Need {info['required_bytes'] // 1024**2} MiB free on /home")
@@ -497,6 +512,7 @@ def list_custom():
 
 
 def build_custom(version):
+    print('[phase] custom Preparing custom driver packages', flush=True)
     if not re.fullmatch(r'[0-9]+(?:\.[0-9]+)+', version) or int(version.split('.')[0]) < 590:
         raise ValueError('Expected an NVIDIA version from 590 onward')
     private_dir(STATE)
@@ -538,6 +554,7 @@ def build_custom(version):
 
 
 def rollback(operation_id=None):
+    print('[phase] preflight Checking the saved systems', flush=True)
     info = read_state()
     if info.get('status') != 'ready':
         raise ValueError('No completed driver preparation is available')
@@ -549,6 +566,7 @@ def rollback(operation_id=None):
     if run('atomupd-manager', 'get-update-status') != 'idle':
         raise ValueError('Finish pending SteamOS updates first')
     # Validate BOTH systems before changing boot selection, also on cancellation.
+    print('[phase] verify Verifying and selecting the previous system', flush=True)
     subprocess.run(['unshare', '--mount', '--propagation', 'slave', '/bin/bash',
                     str(HERE / 'rollback.sh'), str(STATE / 'transaction.json')], check=True)
     info['status'] = 'rollback-selected'
@@ -597,10 +615,7 @@ def main():
     elif args.action == 'record':
         record(args.root, args.version, args.kernel, args.urls)
     elif args.action == 'status':
-        data = read_state()
-        data['active_slot'] = run('steamos-bootconf', 'this-image')
-        data['pending_reboot'] = data.get('status') == 'ready' and data['active_slot'] == data.get('source')
-        print(json.dumps(data))
+        print(json.dumps(transaction_status()))
     elif args.action == 'preflight':
         print(json.dumps(preflight()))
     elif args.action == 'custom-list':

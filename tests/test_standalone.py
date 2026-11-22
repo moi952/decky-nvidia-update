@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,6 +44,54 @@ fi
 '''
 URLS = ' '.join(f'https://archive.archlinux.org/packages/{p[0]}/{p}/{p}-{VERSION}-x86_64.pkg.tar.zst'
                 for p in ('nvidia-utils', 'nvidia-open-dkms', 'lib32-nvidia-utils'))
+
+
+class RootSizeCompatibility(unittest.TestCase):
+    def check_size(self, gib, available_gib):
+        size = gib * 1024**3
+        answers = {
+            ('steamos-bootconf', 'selected-image'): 'A',
+            ('btrfs', 'property', 'get', '/', 'ro'): 'ro=true',
+            ('findmnt', '-n', '-o', 'TARGET', '--mountpoint', '/home'): '/home',
+            ('atomupd-manager', 'get-update-status'): 'idle',
+            ('busctl', 'get-property', 'de.pengutronix.rauc', '/', 'de.pengutronix.rauc.Installer', 'Operation'): 's "idle"',
+            ('blockdev', '--getsize64', '/dev/test-target'): str(size),
+        }
+        with patch.object(d, 'layout', return_value=('A', 'B', {'B/rootfs': '/dev/test-target'})), patch.object(d, 'run', side_effect=lambda *args: answers[args]), patch.object(d.shutil, 'which', return_value='/usr/bin/tool'), patch.object(Path, 'read_text', return_value='ID=steamos\n'), patch.object(d, 'hook_text'), patch.object(d.subprocess, 'run'), patch.object(d.shutil, 'disk_usage', return_value=SimpleNamespace(free=available_gib * 1024**3)):
+            return d.preflight()
+
+    def test_original_and_enlarged_roots_use_the_detected_target_size(self):
+        for gib in (5, 8):
+            with self.subTest(root_gib=gib):
+                result = self.check_size(gib, gib + 12)
+                self.assertEqual(result['target_bytes'], gib * 1024**3)
+                self.assertEqual(result['required_bytes'], (gib + 12) * 1024**3)
+                self.assertTrue(result['enough_space'])
+
+    def test_eight_gib_root_still_checks_home_space(self):
+        self.assertFalse(self.check_size(8, 19)['enough_space'])
+
+
+class TransactionStatus(unittest.TestCase):
+    def test_restart_depends_on_the_current_boot_selection(self):
+        cases = [
+            ('ready', 'A', 'B', True),
+            ('ready', 'B', 'B', False),
+            ('ready', 'A', 'A', False),
+            ('rollback-selected', 'B', 'A', True),
+            ('rollback-selected', 'A', 'A', False),
+            ('rollback-selected', 'B', 'B', False),
+            ('failed', 'A', 'B', False),
+        ]
+        for status, active, selected, pending in cases:
+            with self.subTest(status=status, active=active, selected=selected), patch.object(d, 'read_state', return_value=dict(status=status, source='A', target='B')), patch.object(d, 'run', side_effect=[active, selected]):
+                result = d.transaction_status()
+            self.assertEqual(result['pending_reboot'], pending)
+            self.assertEqual(result['selected_slot'], selected)
+
+    def test_incomplete_transaction_never_requests_a_reboot(self):
+        with patch.object(d, 'read_state', return_value=dict(status='ready')), patch.object(d, 'run', side_effect=['A', 'B']):
+            self.assertFalse(d.transaction_status()['pending_reboot'])
 
 
 class RootDevice(unittest.TestCase):

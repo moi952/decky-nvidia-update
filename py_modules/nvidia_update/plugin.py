@@ -1,10 +1,8 @@
 import asyncio
-import html
 import json
 import os
 import re
 import traceback
-import urllib.parse
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -12,17 +10,14 @@ from typing import Any, Dict, List, Optional
 import decky
 from decky_plugin_toolkit import PluginUpdaterMixin, WhatsNewSeenMixin, OtherPluginsSeenMixin
 
+from .catalog import fetch_catalog
 from .custom_build import CustomBuildMixin
-from .standalone import StandaloneMixin
+from .standalone import StandaloneMixin, current_log_path
 
 # The plugin ships its own copy of the CLI tool (bin/steamos-nvidia-update.sh)
 # so the exact same script can be run by hand over SSH/terminal or driven
 # from this UI — one mechanism, two ways to trigger it.
 SCRIPT_PATH = Path(decky.DECKY_PLUGIN_DIR) / "bin" / "steamos-nvidia-update.sh"
-
-# Full run output, persisted — so a failure can be read with `cat`/`tail -f`
-# instead of screenshotting the UI's scrollback. Overwritten each run.
-LOG_FILE = Path(decky.DECKY_PLUGIN_LOG_DIR) / "nvidia-update-run.log"
 
 SETTINGS_FILE = Path(decky.DECKY_PLUGIN_SETTINGS_DIR) / "settings.json"
 DEFAULT_SETTINGS: Dict[str, Any] = {
@@ -59,43 +54,6 @@ def _version_key(v: str):
     numerically rather than lexicographically."""
     return [int(p) if p.isdigit() else p for p in VERSION_SPLIT_RE.split(v)]
 
-# NVIDIA's own (undocumented, unofficial) driver-lookup API — the same one
-# backing the search widget at nvidia.com/en-us/drivers/results/. psid/pfid
-# identify a product series/family in NVIDIA's system; these values were
-# obtained from a real Linux driver search and return the general desktop
-# GeForce/RTX Linux driver lineage, which is what every modern desktop
-# NVIDIA GPU actually uses (Linux driver builds aren't per-GPU-model) — not
-# tied to any specific card. osID=12 is Linux 64-bit. No official docs exist
-# for this endpoint; it could change or start blocking scripted requests
-# without notice. Every caller of this treats that as a normal, non-fatal
-# failure (empty result), same as the archlinux.org lookups above.
-NVIDIA_DRIVER_LOOKUP_URL = (
-    "https://gfwsl.geforce.com/services_toolkit/services/com/nvidia/services/"
-    "AjaxDriverService.php?func=DriverManualLookup&psid=131&pfid=1068&osID=12"
-    "&languageCode=1033&isWHQL=0&beta=null&dltype=-1&dch=0&upCRD=null&qnf=0"
-    "&ctk=null&sort1=0&numberOfResults=200"
-)
-
-
-def _nvidia_notes_to_lines(raw_encoded: str) -> List[str]:
-    """NVIDIA's ReleaseNotes field is URL-encoded HTML (<ul><li>...</li></ul>,
-    with <a href> links and stray <br> tags) — turn it into plain text lines
-    for display, same shape as the existing scrollback log."""
-    if not raw_encoded:
-        return []
-    text = urllib.parse.unquote(raw_encoded)
-    text = re.sub(r"(?i)<br\s*/?>", "\n", text)
-    text = re.sub(r"(?i)<a[^>]*>(.*?)</a>", r"\1", text)
-    items = re.findall(r"(?is)<li[^>]*>(.*?)</li>", text) or [text]
-    lines = []
-    for item in items:
-        item = re.sub(r"(?i)<[^>]+>", "", item)
-        item = html.unescape(item)
-        item = re.sub(r"\s+", " ", item).strip()
-        if item:
-            lines.append(item)
-    return lines
-
 DEFAULT_STATE: Dict[str, Any] = {
     "running": False,
     "step": 0,
@@ -112,6 +70,7 @@ DEFAULT_STATE: Dict[str, Any] = {
     # fallback either way.
     "error_code": None,
     "driver_spec": None,
+    "pending_reboot": False,
 }
 
 # Marker die() prefixes the script's own message with on specific, known
@@ -190,58 +149,8 @@ class Plugin(StandaloneMixin, PluginUpdaterMixin, WhatsNewSeenMixin, OtherPlugin
             return empty
 
     async def get_nvidia_branch_info(self) -> Dict[str, Any]:
-        """NVIDIA's own driver-lookup service, queried live on every call (not
-        cached/baked in) — classifies EVERY release it returns (in practice,
-        as much history as it's willing to give per request — around 40
-        entries, spanning roughly the last year and a half) as Recommended
-        (production), New Feature Branch, or Beta, something Arch's own
-        repos have no concept of (they only distinguish stable vs testing).
-        This is applied across the WHOLE Arch-available version list on the
-        frontend, not just a single 'latest per category' pick — a version
-        Arch has that isn't in this map is simply left unclassified (shown
-        regardless of filter state, since we have no basis to hide it).
-        Best-effort: this is an unofficial endpoint with no SLA, so any
-        failure here degrades to an empty map rather than affecting
-        anything else in the UI."""
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                "curl", "-sfL", NVIDIA_DRIVER_LOOKUP_URL,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.DEVNULL,
-                env=_clean_env(),
-            )
-            out, _ = await proc.communicate()
-            if proc.returncode != 0:
-                return {}
-            data = json.loads(out.decode(errors="replace"))
-            entries = [e["downloadInfo"] for e in data.get("IDS", []) if "downloadInfo" in e]
-
-            versions: Dict[str, Any] = {}
-            for e in entries:
-                v = e.get("DisplayVersion")
-                if not v:
-                    continue
-                if e.get("IsRecommended") == "1":
-                    category = "recommended"
-                elif e.get("IsFeaturePreview") == "1":
-                    category = "nfb"
-                elif e.get("IsBeta") == "1":
-                    category = "beta"
-                else:
-                    continue
-                versions[v] = {
-                    "category": category,
-                    "date": e.get("ReleaseDateTime", ""),
-                    "notes": _nvidia_notes_to_lines(e.get("ReleaseNotes", "")),
-                }
-            decky.logger.info(
-                f"[get_nvidia_branch_info] fetched {len(entries)} NVIDIA entries, "
-                f"classified {len(versions)}"
-            )
-            return versions
-        except Exception as e:
-            decky.logger.error(f"[get_nvidia_branch_info] {e}")
-            return {}
+        """Combine production and NFB metadata without changing package sources."""
+        return await fetch_catalog(_clean_env(), decky.logger)
 
     async def list_driver_versions(self) -> List[str]:
         """Recent nvidia-utils versions, newest first (script prints oldest→newest)."""
@@ -315,7 +224,7 @@ class Plugin(StandaloneMixin, PluginUpdaterMixin, WhatsNewSeenMixin, OtherPlugin
         return dict(self._state)
 
     async def get_log_path(self) -> str:
-        return str(LOG_FILE)
+        return str(current_log_path())
 
     # ── Settings (persisted across sessions) ────────────────────────────
 
@@ -349,6 +258,13 @@ class Plugin(StandaloneMixin, PluginUpdaterMixin, WhatsNewSeenMixin, OtherPlugin
     # ── Lifecycle ────────────────────────────────────────────────────────
 
     async def _unload(self) -> None:
+        # Only detach the observer. systemd continues to own the update job.
+        if self._task and not self._task.done():
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
         decky.logger.info("decky-nvidia-update unloaded")
 
     async def _migration(self) -> None:

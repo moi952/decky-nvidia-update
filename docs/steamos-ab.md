@@ -21,6 +21,49 @@ The UI and driver version discovery originate in moi952/decky-nvidia-update.
 
 ## Storage and supported systems
 
+### Configuration persistence
+
+Driver preparation previously copied the merged live `/etc` into the immutable
+root image. Valve's migration then omitted matching
+upper-layer files; a subsequent SteamOS update could lose Decky's service, SSH
+autostart and other user configuration.
+
+Driver preparation now clones the base without importing live additions or edits.
+Pacman configuration, mirrors and keyring are available only in the disposable
+build overlay. OS-update repairs use the destination OS's repository settings.
+Deleted base entries are pruned from the disposable clone without following
+symlinks or entering live nested mounts. A read failure, unexpected target mount,
+or more than 200 deleted entries stops preparation before writing a slot.
+
+Valve's keep list remains authoritative for subsequent OS updates; this does not
+add a blanket rule to preserve every `/etc` file. In particular, Valve's migration
+does not copy opaque-directory overlay attributes. This build does not promise
+to preserve arbitrary settings outside Valve's supported migration policy.
+
+**Existing flattened bases:** when these four paths are present in the source
+base, driver preparation moves their current effective state into the writable
+overlay: `systemd/system/plugin_loader.service`, its
+`multi-user.target.wants/plugin_loader.service` link, and
+`multi-user.target.wants/sshd.service`, and a local `systemd/system/sshd.service`
+override or mask. It verifies the copied contents and metadata
+before removing those entries from the disposable base. It never enables a
+disabled service, removes a mask, starts Decky/SSH, or writes the active base.
+Copy-up changes storage location and inode metadata, but not effective service
+configuration. Unsupported mounts, types or incomplete copy-up stop preparation.
+
+This is a limited migration, not a complete detector or repair of every previously
+baked-in setting. Existing base passwords and SSH host keys need separate review
+before an OS update. It cannot recover configuration already lost by an earlier
+OS update. Fresh upper-layer account settings and keys use normal Valve migration.
+
+Installing the ZIP only replaces the plugin. It does not restore a missing Decky
+service, enable SSH, change the NVIDIA driver, or select a boot slot. Driver
+changes and reboots have been validated on the configuration described in
+[the Stable validation record](validation-stable-20261024.md). A subsequent
+SteamOS update with these changes still needs hardware validation.
+
+### Layout
+
 - An installed SteamOS A/B layout with Btrfs root filesystems and separate /home.
   Both slot sets must be on the same disk; ambiguous or mounted targets are refused.
 - Modern `steamos-bootconf`, `steamos-chroot`, RAUC and the recognized Valve
@@ -119,7 +162,7 @@ The active root is not unlocked or overwritten. The current system is retained a
 rollback. Games and user files are not installation targets. A/B boot metadata is
 updated; this is not a file-only operation.
 
-The process runs as a systemd service and logs to Decky's plugin log directory.
+The process runs as a systemd service and keeps its log under `operations/` in Decky's plugin log directory, outside Decky's rotating backend logs. Open **View log** for the saved output. Live mode follows the newest line; press the left stick (L3) to browse with the right stick, and press L3 again to return to Live and normal navigation. The log also supports clicking to switch modes, plus mouse-wheel and keyboard scrolling in history mode.
 Closing/reloading Decky does not own or terminate that service. Reboot is explicit.
 The UI distinguishes the current system from the driver prepared for the next boot.
 
@@ -159,6 +202,23 @@ unchanged and publish a newer stable version with the workflow's asset name
 `decky-nvidia-update-v<VERSION>.zip`. Automatic checks use the latest stable release;
 prereleases remain available in the manual release picker. Earlier standalone
 development builds with self-updates disabled need a manual update first.
+
+## Operation status and recovery
+
+The panel restores a pending installation or rollback after Decky reloads. A
+restart is offered only when the saved transaction's destination is still
+selected for boot and differs from the running system. Returning to the already
+running system cancels the prepared selection without asking for another reboot.
+
+Progress describes the whole transaction. A custom build or payload worker
+finishing its own steps cannot report 100% before the inactive slot is written
+and validated. Completion requires a matching operation receipt after the service
+stops. The percentage represents stages, not elapsed time or a time estimate.
+
+Start failures, an already running operation and an unavailable status connection
+have distinct messages. The panel reconnects to status without resubmitting an
+installation. Closing Decky detaches its observer; the systemd service continues.
+If status cannot be read, update actions remain unavailable until it is restored.
 
 ## CLI
 
@@ -236,11 +296,35 @@ pnpm exec tsc --noEmit
 node tests/driver_dropdown.cjs
 node tests/dropdown_geometry.cjs
 node tests/plugin_updates.cjs
+node tests/driver_operation.cjs
 bash package.sh
 ```
 
 The backend's only vendored dependency is decky-plugin-toolkit, pinned to v0.1.0.
 `package.sh` bundles it and produces a ZIP in `packages/`.
+
+Pacman configuration staging corrects a build-overlay copy failure
+seen with compressed Btrfs roots: rsync tried to remove `btrfs.compression` through
+an overlay backed by ext4 and stopped with error 23. Pacman configuration copies
+exclude that filesystem-specific attribute while retaining permissions, ACLs and
+other extended attributes. The root-only test below reproduces the original
+failure on disposable Btrfs/ext4 images and exercises both driver preparation
+and OS-repair configuration copies without writing to OS partitions:
+
+```bash
+sudo unshare --mount --propagation private python3 tests/linux_pacman_xattrs.py
+```
+
+The build wrapper also handles the obsolete
+`blake2b_generic` request in Valve's SteamOS 3.9.5 initcpio hook. During package
+hooks and final initramfs generation, a temporary install-hook copy selects
+`blake2b` only when the requested kernel's module metadata confirms built-in
+BLAKE2b support and the old module name is unavailable. Older kernels and other
+errors retain normal behavior. The temporary override is removed after the
+child process exits; Valve's hook, kdumpst configuration and active boot files
+are not patched. A direct mkinitcpio test on the affected kernel succeeded with
+its output confined to a disposable file. Two subsequent driver installations
+and reboots also passed; see [the Stable validation record](validation-stable-20261024.md).
 
 Build helpers run in a separate PID and mount namespace. Exiting the worker
 terminates package-hook daemons and releases their overlay mounts before the

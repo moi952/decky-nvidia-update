@@ -35,6 +35,7 @@ export function ReleaseNotesModal({
     <ConfirmModal
       strTitle={version}
       strOKButtonText={t("close_button")}
+      bAlertDialog
       onOK={closeModal}
       onCancel={closeModal}
     >

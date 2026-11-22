@@ -56,6 +56,9 @@ mount -t proc proc "$ROOT/proc"
 mount --rbind /dev "$ROOT/dev"; mount --make-rslave "$ROOT/dev"
 mount --rbind /sys "$ROOT/sys"; mount --make-rslave "$ROOT/sys"
 finish_target "$ROOT" "$KERNEL"
+if [[ "$MODE" == --finish ]]; then
+    echo '[phase] verify Verifying the prepared system'
+fi
 check_driver "$ROOT" "$KERNEL" "${VERSION%-*}"
 if [[ "$MODE" == --finish ]]; then
     [[ -f "$FINISH_WORK/request.json" ]] || die "Missing driver transaction"

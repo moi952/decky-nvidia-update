@@ -71,7 +71,7 @@ EOF
     chroot "$root" update-grub
     grep -q 'rd.driver.blacklist=nouveau' "$root/efi/EFI/steamos/grub.cfg" || die "Missing NVIDIA boot configuration"
     # A cloned initramfs could contain the previous NVIDIA modules.
-    chroot "$root" mkinitcpio -P
+    python3 -I "$HERE/initcpio_compat.py" "$root" mkinitcpio -P
     chroot "$root" depmod "$kernel"
     chroot "$root" ldconfig
     require_space "$root" 256

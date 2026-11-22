@@ -13,6 +13,7 @@ import { FiArrowLeft } from "react-icons/fi";
 
 import { fetchPluginReleases } from "../utils/githubReleases";
 import { FEATURE_REQUEST_URL, BUG_REPORT_URL } from "../utils/links";
+import { HelpScope, helpProps } from "../ContextHelp";
 
 interface SettingsViewProps {
   onBack: () => void;
@@ -36,26 +37,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           style={{ display: "flex", alignItems: "center", gap: "8px" }}
           flow-children="horizontal"
         >
-          <ActionButton onClick={onBack}>
+          <ActionButton onClick={onBack} {...helpProps("settings")}>
             <FiArrowLeft size={16} />
           </ActionButton>
           <span style={{ fontWeight: 600 }}>{t("settings_title")}</span>
         </Focusable>
       </PanelSection>
 
-      <UpdateHistorySection versions={getWhatsNewVersions()} />
+      <HelpScope topic="history">
+        <UpdateHistorySection versions={getWhatsNewVersions()} />
+      </HelpScope>
       {pluginUpdateBlocked ? (
         <PanelSection>
           <p>{t("plugin_update_wait")}</p>
         </PanelSection>
       ) : (
-        <GitHubSection
-          fetchReleases={fetchPluginReleases}
-          featureRequestUrl={FEATURE_REQUEST_URL}
-          bugReportUrl={BUG_REPORT_URL}
-        />
+        <HelpScope topic="plugin">
+          <GitHubSection
+            fetchReleases={fetchPluginReleases}
+            featureRequestUrl={FEATURE_REQUEST_URL}
+            bugReportUrl={BUG_REPORT_URL}
+          />
+        </HelpScope>
       )}
-      <SupportSection />
+      <HelpScope topic="support">
+        <SupportSection />
+      </HelpScope>
     </BackHandler>
   );
 };

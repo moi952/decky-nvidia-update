@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnchoredDropdown } from "@moi952/decky-ui-kit";
+import { helpProps } from "./ContextHelp";
 
 export type RepoInfo = {
   stable: string;
@@ -195,6 +196,7 @@ export function VersionDropdown({
   return (
     <div style={disabled ? { opacity: 0.5, pointerEvents: "none" } : undefined}>
       <AnchoredDropdown
+        {...helpProps("driver")}
         maxVisibleOptions={8}
         renderOptionLabel={(option) => (
           <span style={{ display: "block", textAlign: "left" }}>
