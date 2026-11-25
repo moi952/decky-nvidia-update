@@ -63,8 +63,9 @@
     "show_builds_desc": "Affiche chaque numéro de build au lieu du plus récent par version.",
     "channel_filter_label": "Filtrer par source / branche",
     "channel_recommended": "Recommandés (Arch)",
-    "channel_nfb": "New Feature Branch (NFB)",
-    "channel_beta": "Beta",
+    "channel_nvidia_recommended": "NVIDIA Recommandé",
+    "channel_nfb": "NVIDIA New Feature Branch (NFB)",
+    "channel_beta": "NVIDIA Beta",
     "channel_tocompile": "À compiler",
     "channel_all": "Tous les canaux",
     "default_channel_label": "Canal de mise à jour",
@@ -76,14 +77,124 @@
     "prepare_notice": "Prépare le système A/B inactif et remplace son contenu. Le système actuel est conservé. Redémarrez pour utiliser le nouveau pilote.",
     "channel_nvidia_other": "Autres NVIDIA",
     "channel_driver_count_one": "{{count}} pilote",
-    "channel_driver_count_other": "{{count}} pilotes"
+    "channel_driver_count_other": "{{count}} pilotes",
+    "status_unavailable": "Vérification de l'état de l'opération du pilote. Les actions seront disponibles quand la connexion sera rétablie.",
+    "reconnect_status": "Reconnecter",
+    "operation_request_failed": "Impossible de démarrer l'opération",
+    "operation_status_unknown": "État de l'opération indisponible",
+    "rollback_restart_body": "Redémarrez pour revenir au système précédent.",
+    "no_restart_pending": "Aucun redémarrage n'est en attente. Le pilote actuel est affiché ci-dessus.",
+    "already_installed_notice": "Ce pilote est déjà installé. Réinstaller la même version n'est pas pris en charge. Aucune mise à jour ne sera lancée.",
+    "view_log": "Voir le journal",
+    "log_title": "Journal de mise à jour du pilote",
+    "log_latest": "Aller à la fin",
+    "log_live_mode": "EN DIRECT",
+    "log_history_mode": "HISTORIQUE",
+    "log_live_hint": "Suit automatiquement la dernière ligne",
+    "log_history_hint": "Stick droit : défiler vers le haut ou le bas · Suivi automatique en pause",
+    "log_browse_history": "Parcourir l'historique",
+    "log_follow_latest": "Suivre la fin",
+    "log_loading": "Chargement du journal…",
+    "log_empty": "Aucun journal de pilote enregistré pour le moment.",
+    "log_unavailable": "Impossible d'actualiser le journal. Nouvelle tentative automatique…",
+    "log_truncated": "Affichage des {{count}} dernières lignes. Le journal complet est enregistré à l'emplacement ci-dessous."
   },
   "settings": {
     "plugin_update_wait": "Les mises à jour du plugin seront disponibles une fois l'état du pilote connu et aucune opération sur le pilote en cours.",
     "settings_title": "Réglages",
     "update_available": "Mise à jour disponible : v{{version}}"
   },
+  "help": {
+    "ui": {
+      "title": "Aide",
+      "intro": "Utilisez Aide dans la barre du bas de Steam pour le contrôle sélectionné, ou choisissez un sujet ci-dessous.",
+      "action": "Aide"
+    },
+    "driver": {
+      "title": "Version du pilote",
+      "text": "Choisissez le pilote NVIDIA à préparer pour l'autre emplacement système de SteamOS. Le pilote actuel reste actif jusqu'au redémarrage. Les libellés indiquent si une version provient des paquets Arch ou d'une compilation personnalisée conservée. « À compiler » signifie que le plugin doit d'abord construire les paquets localement.\n\nUne version déjà installée ne peut pas être réinstallée. Changer cette sélection n'installe rien à lui seul."
+    },
+    "recommended": {
+      "title": "Recommandés (Arch)",
+      "text": "Ces versions sont des paquets Arch Linux : ce sont les pilotes à prendre. Elles évitent de construire des paquets personnalisés à partir de l'installeur NVIDIA. Le module noyau NVIDIA doit tout de même être compilé pour votre noyau SteamOS.\n\nElles sont étiquetées Arch quel que soit le canal NVIDIA de cette version. Cela ne veut pas dire que chaque version listée est la plus récente ni le meilleur choix pour votre GPU. La liste inclut d'anciennes versions archivées. « Arch testing » désigne des paquets d'un dépôt Arch testing ; ce n'est pas le canal Beta de NVIDIA."
+    },
+    "nfb": {
+      "title": "New Feature Branch (NFB)",
+      "text": "Versions NVIDIA classées New Feature Branch, axées sur les nouvelles fonctionnalités, qu'Arch ne package pas. Elles peuvent nécessiter une compilation locale.\n\nUn compteur à zéro signifie qu'aucune version uniquement NVIDIA n'est disponible dans ce canal pour le moment. Les versions NFB packagées par Arch sont comptées dans Recommandés (Arch)."
+    },
+    "beta": {
+      "title": "Beta",
+      "text": "Pilotes préliminaires identifiés comme Beta par NVIDIA. Ils peuvent apporter de nouvelles fonctionnalités ou corrections, mais aussi des régressions. Ce filtre contient les versions d'origine NVIDIA absentes de la liste Arch.\n\nCes pilotes peuvent nécessiter une compilation locale. « Arch testing » est un libellé de dépôt Arch, différent de la Beta NVIDIA."
+    },
+    "nvidia_recommended": {
+      "title": "NVIDIA Recommandé",
+      "text": "Versions NVIDIA marquées Recommandé, sa branche de production, qu'Arch ne package pas. Elles nécessitent une compilation locale avant l'installation.\n\nUne version que NVIDIA ne classe dans aucun canal est toujours affichée dans la liste."
+    },
+    "filters": {
+      "title": "Filtrer par source / canal",
+      "text": "Ces interrupteurs déterminent les catégories affichées dans la liste des pilotes. Ils n'installent, ne suppriment ni ne modifient le pilote actif.\n\nLes compteurs décrivent les versions disponibles par source : chaque paquet Arch est compté dans Recommandés (Arch), quel que soit son canal NVIDIA, et les versions uniquement NVIDIA sont comptées dans leur canal NVIDIA. La disponibilité dépend aussi des catalogues de paquets et de compilations personnalisées actuels. Utilisez l'action Aide sur un filtre pour son explication."
+    },
+    "channel": {
+      "title": "Canal de mise à jour",
+      "text": "Choisissez la catégorie utilisée pour la sélection par défaut, les notifications de mise à jour et la comparaison « À jour ». Tous les canaux compare l'ensemble des catégories disponibles. À compiler sélectionne les versions nécessitant la création locale de paquets.\n\nCe réglage n'installe aucune mise à jour automatiquement. Les filtres de source contrôlent séparément ce que vous voyez dans la liste."
+    },
+    "builds": {
+      "title": "Afficher les builds exacts (-N)",
+      "text": "Affiche chaque révision de paquet Arch, comme 615.78.08-1 et 615.78.08-2, au lieu de les regrouper sous une seule version NVIDIA. Le nombre après le tiret est la révision du paquet, pas une nouvelle version du pilote NVIDIA.\n\nCela modifie l'affichage de la liste et permet de choisir une révision de paquet précise ; cela ne change pas votre pilote installé."
+    },
+    "install": {
+      "title": "Installer le pilote",
+      "text": "Le plugin prépare et valide une image système compressée sur /home, puis l'écrit dans l'emplacement A/B inactif de SteamOS. Le contenu précédent de cet emplacement est remplacé. Votre système en cours d'exécution est conservé pour un retour arrière. Redémarrez une fois la préparation terminée pour utiliser le nouveau pilote.\n\nLe plugin prend en charge les dispositions A/B compatibles avec la taille d'origine de la racine ainsi que les racines précédemment agrandies à 8 Go. Il utilise la taille cible détectée et vérifie l'espace libre ; il ne redimensionne pas les partitions. Les versions personnalisées demandent aussi du temps et de l'espace pour la compilation locale des paquets."
+    },
+    "rollback": {
+      "title": "Revenir au système précédent",
+      "text": "Sélectionne le système précédent conservé pour le prochain démarrage, après avoir vérifié que les deux identités système enregistrées correspondent toujours. Redémarrez pour basculer. Cela change l'emplacement système enregistré, pas seulement un paquet de pilote.\n\nLe retour arrière peut être indisponible si une mise à jour du système ou une autre opération a remplacé le système enregistré. Une préparation de pilote ultérieure écrase l'emplacement inactif."
+    },
+    "reboot": {
+      "title": "Redémarrer maintenant",
+      "text": "Redémarre le PC sur le système sélectionné par la préparation du pilote ou le retour arrière terminé. Tant que vous ne redémarrez pas, le pilote actuel reste chargé. Enregistrez votre travail en cours avant de redémarrer."
+    },
+    "log": {
+      "title": "Journal de mise à jour du pilote",
+      "text": "Ouvre le journal d'opération enregistré dans une fenêtre plus grande. Le mode En direct suit toujours la ligne la plus récente en bas. Appuyez sur le stick gauche (L3) pour parcourir l'historique avec le stick droit ; appuyez à nouveau sur L3 pour revenir en direct. En mode historique, vous pouvez aussi utiliser la molette de la souris ou le clavier. Cliquez sur le journal pour changer de mode avec une souris.\n\nLe journal reste disponible après un redémarrage de Decky. Les très gros journaux affichent leur partie récente et le chemin complet du fichier. Ouvrir ou fermer l'afficheur ne démarre, n'annule ni ne modifie l'opération."
+    },
+    "notes": {
+      "title": "Notes de version",
+      "text": "Lisez les changements publiés par NVIDIA pour le pilote sélectionné. Les notes peuvent être indisponibles pour certains paquets archivés. Ouvrir cette fenêtre n'installe pas le pilote. L'historique des versions du plugin est une section distincte dans les Réglages."
+    },
+    "reconnect": {
+      "title": "Reconnecter",
+      "text": "Actualise l'état de l'opération du pilote après un problème de connexion. Une opération en cours appartient à systemd et peut continuer pendant le rechargement de Decky. La reconnexion observe cette opération existante ; elle ne démarre pas une seconde installation."
+    },
+    "settings": {
+      "title": "Réglages du plugin",
+      "text": "Consultez l'historique des versions du plugin, vérifiez les versions disponibles et accédez aux liens du projet. Les mises à jour du plugin remplacent le plugin Decky lui-même ; les mises à jour du pilote NVIDIA sont une action distincte du panneau principal.\n\nL'installation du plugin est bloquée tant qu'une opération sur le pilote est en cours ou que son état est inconnu."
+    },
+    "history": {
+      "title": "Historique des versions du plugin",
+      "text": "Lisez les changements apportés au plugin Decky. C'est distinct des notes de version du pilote NVIDIA et cela ne modifie pas le pilote installé."
+    },
+    "plugin": {
+      "title": "Mises à jour du plugin et liens du projet",
+      "text": "Choisissez une version publiée du plugin et laissez Decky installer son ZIP, ou ouvrez les liens de retours et de tickets du projet. Cela met à jour le plugin, pas le pilote NVIDIA. Le dépôt configuré détermine les versions proposées."
+    },
+    "support": {
+      "title": "Soutien",
+      "text": "Ouvre les liens de soutien de l'auteur du plugin. Cette section ne modifie ni votre pilote ni la configuration de votre système."
+    }
+  },
   "whats_new": {
+    "v0_5_0": {
+      "title": "Nouveautés de la 0.5.0",
+      "items": [
+        "Changements de pilote plus fiables : votre configuration SteamOS est désormais préservée, et l'erreur de construction de l'initramfs (blake2b_generic) qui pouvait bloquer une mise à jour est gérée",
+        "Un pilote déjà installé est maintenant expliqué et refusé au lieu d'échouer silencieusement",
+        "Nouvel afficheur de journal : défilable, conservé après un redémarrage de Decky, avec L3 pour parcourir l'historique",
+        "Aide contextuelle intégrée sur chaque contrôle, en français, anglais et espagnol",
+        "Sélecteur de pilote réorganisé : Recommandés (Arch) liste les paquets Arch à prendre, et les versions uniquement NVIDIA sont réparties en Recommandé, NFB et Beta, avec compteurs en direct",
+        "Les notes de version et les canaux NVIDIA couvrent désormais les catalogues production et New Feature Branch"
+      ]
+    },
     "v0_4_0": {
       "title": "Nouveautés de la 0.4.0",
       "items": [

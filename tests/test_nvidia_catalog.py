@@ -46,6 +46,16 @@ class MergeCatalogs(unittest.TestCase):
                                          dict(entry('610.57.04'),IsFeaturePreview=0), entry('615.78.08')]])
         self.assertEqual(list(result), ['615.78.08'])
 
+    def test_empty_display_version_falls_back_to_the_plain_version(self):
+        # NVIDIA publishes 595.80 / 595.84 as recommended with an empty DisplayVersion.
+        legacy = dict(entry('', 'recommended'), Version='595.84')
+        result = catalog.merge_catalogs([[legacy, dict(legacy, DisplayVersion=None, Version='595.80')]])
+        self.assertEqual({v: i['category'] for v, i in result.items()},
+                         {'595.84': 'recommended', '595.80': 'recommended'})
+        # A usable DisplayVersion still wins over the plain Version.
+        both = dict(entry('595.91.07', 'recommended'), Version='595.91')
+        self.assertEqual(list(catalog.merge_catalogs([[both]])), ['595.91.07'])
+
     def test_notes_do_not_leak_between_different_versions(self):
         result = catalog.merge_catalogs([[entry('595.104.02','recommended')], [entry('615.78.08',notes='')]])
         self.assertEqual(result['615.78.08']['notes'], [])

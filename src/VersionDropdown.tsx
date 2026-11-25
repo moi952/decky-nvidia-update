@@ -16,7 +16,11 @@ export type NvidiaVersionInfo = {
   notes: string[];
 };
 export type NvidiaVersionMap = Record<string, NvidiaVersionInfo>;
-export type DriverChannel = "recommended" | "nfb" | "beta" | "nvidia_other";
+// "recommended" is the Arch-packaged source (the driver to take), whatever
+// NVIDIA's channel. NVIDIA-only releases keep NVIDIA's three channels;
+// "nvidia_other" only holds releases NVIDIA's catalogue does not classify.
+export type DriverChannel =
+  "recommended" | "nvidia_recommended" | "nfb" | "beta" | "nvidia_other";
 export type ChannelFilters = Record<DriverChannel, boolean>;
 export type DefaultChannelChoice = DriverChannel | "all" | "tocompile";
 
@@ -37,6 +41,7 @@ export function driverChannel(
   info?: NvidiaVersionInfo,
 ): DriverChannel {
   if (isArch) return "recommended";
+  if (info?.category === "recommended") return "nvidia_recommended";
   return info?.category === "nfb" || info?.category === "beta"
     ? info.category
     : "nvidia_other";
@@ -49,7 +54,13 @@ export function channelCounts(
   nvidiaVersions: NvidiaVersionMap,
 ): Record<DriverChannel, number> {
   const arch = new Set(archVersions.map(bare));
-  const counts = { recommended: arch.size, nfb: 0, beta: 0, nvidia_other: 0 };
+  const counts: Record<DriverChannel, number> = {
+    recommended: arch.size,
+    nvidia_recommended: 0,
+    nfb: 0,
+    beta: 0,
+    nvidia_other: 0,
+  };
   for (const version of new Set([...buildableVersions, ...customVersions])) {
     if (!arch.has(version))
       counts[driverChannel(false, nvidiaVersions[version])]++;
@@ -135,7 +146,10 @@ export function VersionDropdown({
   const archOptions = channelFilters.recommended
     ? displayVersions.map((v) => ({
         data: v,
-        label: `${v} (${(showBuildNumbers ? repoInfo.testing_versions.includes(v) : testing.has(v)) ? archTestingLabel : "Arch"})`,
+        // The version and its source are split by a newline: the closed
+        // dropdown wraps there instead of truncating with "…". Arch is the
+        // source to take; NVIDIA's channel does not apply to it.
+        label: `${v}\n(${(showBuildNumbers ? repoInfo.testing_versions.includes(v) : testing.has(v)) ? archTestingLabel : "Arch"})`,
         channel: "recommended" as DriverChannel,
         needsBuild: false,
       }))
@@ -148,11 +162,12 @@ export function VersionDropdown({
       const channel = driverChannel(false, nvidiaVersions[v]);
       const needsBuild = !customBuildVersions.includes(v);
       const tags = ["NVIDIA"];
-      tags.push(categoryLabels[channel]);
+      // An unclassified release has no channel to show.
+      if (channel !== "nvidia_other") tags.push(categoryLabels[channel]);
       tags.push(needsBuild ? needsBuildLabel : customBuildLabel);
       return {
         data: v,
-        label: `${v} (${tags.join(" · ")})`,
+        label: `${v}\n(${tags.join(" · ")})`,
         channel,
         needsBuild,
       };
@@ -198,6 +213,10 @@ export function VersionDropdown({
       <AnchoredDropdown
         {...helpProps("driver")}
         maxVisibleOptions={8}
+        // "stacked" keeps the newline in the closed label (white-space:
+        // pre-line); the version, then its tags, which may wrap once more.
+        selectedValuesLayout="stacked"
+        maxDisplayLines={3}
         renderOptionLabel={(option) => (
           <span style={{ display: "block", textAlign: "left" }}>
             <span

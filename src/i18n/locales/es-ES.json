@@ -63,8 +63,9 @@
     "show_builds_desc": "Muestra cada número de build en vez de solo el más reciente por versión.",
     "channel_filter_label": "Filtrar por origen / rama",
     "channel_recommended": "Recomendados (Arch)",
-    "channel_nfb": "New Feature Branch (NFB)",
-    "channel_beta": "Beta",
+    "channel_nvidia_recommended": "NVIDIA Recomendado",
+    "channel_nfb": "NVIDIA New Feature Branch (NFB)",
+    "channel_beta": "NVIDIA Beta",
     "channel_tocompile": "A compilar",
     "channel_all": "Todos los canales",
     "default_channel_label": "Canal de actualización",
@@ -76,14 +77,124 @@
     "prepare_notice": "Prepara el sistema A/B inactivo y reemplaza su contenido. El sistema actual se conserva. Reinicia para usar el nuevo controlador.",
     "channel_nvidia_other": "Otros NVIDIA",
     "channel_driver_count_one": "{{count}} controlador",
-    "channel_driver_count_other": "{{count}} controladores"
+    "channel_driver_count_other": "{{count}} controladores",
+    "status_unavailable": "Comprobando el estado de la operación del controlador. Las acciones estarán disponibles cuando se restablezca la conexión.",
+    "reconnect_status": "Reconectar",
+    "operation_request_failed": "No se pudo iniciar la operación",
+    "operation_status_unknown": "Estado de la operación no disponible",
+    "rollback_restart_body": "Reinicia para volver al sistema anterior.",
+    "no_restart_pending": "No hay ningún reinicio pendiente. El controlador actual se muestra arriba.",
+    "already_installed_notice": "Este controlador ya está instalado. No se admite reinstalar la misma versión. No se iniciará ninguna actualización.",
+    "view_log": "Ver registro",
+    "log_title": "Registro de actualización del controlador",
+    "log_latest": "Ir al final",
+    "log_live_mode": "EN VIVO",
+    "log_history_mode": "HISTORIAL",
+    "log_live_hint": "Sigue automáticamente la última línea",
+    "log_history_hint": "Stick derecho: desplazar hacia arriba o abajo · Seguimiento automático en pausa",
+    "log_browse_history": "Explorar el historial",
+    "log_follow_latest": "Seguir el final",
+    "log_loading": "Cargando registro…",
+    "log_empty": "Todavía no hay ningún registro del controlador guardado.",
+    "log_unavailable": "No se pudo actualizar el registro. Reintentando automáticamente…",
+    "log_truncated": "Mostrando las últimas {{count}} líneas. El registro completo está guardado en la ruta indicada abajo."
   },
   "settings": {
     "plugin_update_wait": "Las actualizaciones del plugin estarán disponibles cuando se conozca el estado del controlador y no haya ninguna operación en curso.",
     "settings_title": "Ajustes",
     "update_available": "Actualización disponible: v{{version}}"
   },
+  "help": {
+    "ui": {
+      "title": "Ayuda",
+      "intro": "Usa Ayuda en la barra inferior de Steam para el control seleccionado, o elige un tema a continuación.",
+      "action": "Ayuda"
+    },
+    "driver": {
+      "title": "Versión del controlador",
+      "text": "Elige el controlador NVIDIA que se preparará para la otra ranura del sistema SteamOS. El controlador actual sigue activo hasta que reinicies. Las etiquetas indican si una versión procede de los paquetes de Arch o de una compilación personalizada conservada. «A compilar» significa que el plugin debe construir antes los paquetes localmente.\n\nUna versión ya instalada no se puede reinstalar. Cambiar esta selección por sí solo no instala nada."
+    },
+    "recommended": {
+      "title": "Recomendados (Arch)",
+      "text": "Estas versiones son paquetes de Arch Linux: son los controladores que conviene elegir. Evitan construir paquetes personalizados a partir del instalador de NVIDIA. El módulo del kernel de NVIDIA aún debe compilarse para tu kernel de SteamOS.\n\nSe etiquetan como Arch sea cual sea el canal de NVIDIA para esa versión. No significa que cada versión listada sea la más reciente ni la mejor opción para tu GPU. La lista incluye versiones archivadas más antiguas. «Arch testing» identifica paquetes de un repositorio Arch testing; es distinto del canal Beta de NVIDIA."
+    },
+    "nfb": {
+      "title": "New Feature Branch (NFB)",
+      "text": "Versiones de NVIDIA clasificadas como New Feature Branch, centradas en funciones más nuevas, que Arch no empaqueta. Pueden requerir una compilación local.\n\nUn recuento de cero significa que ahora no hay ninguna versión solo de NVIDIA en este canal. Las versiones NFB que Arch empaqueta se cuentan en Recomendados (Arch)."
+    },
+    "beta": {
+      "title": "Beta",
+      "text": "Controladores preliminares identificados como Beta por NVIDIA. Pueden incluir nuevas funciones o correcciones, pero también regresiones. Este filtro contiene versiones de origen NVIDIA que no están en la lista de Arch.\n\nEstos controladores pueden requerir una compilación local. «Arch testing» es una etiqueta de repositorio de Arch y no es lo mismo que la Beta de NVIDIA."
+    },
+    "nvidia_recommended": {
+      "title": "NVIDIA Recomendado",
+      "text": "Versiones de NVIDIA marcadas como Recomendado, su rama de producción, que Arch no empaqueta. Necesitan una compilación local antes de instalarse.\n\nUna versión que NVIDIA no clasifica en ningún canal siempre se muestra en el selector."
+    },
+    "filters": {
+      "title": "Filtrar por origen / canal",
+      "text": "Estos interruptores controlan qué categorías aparecen en el selector de controladores. No instalan, eliminan ni cambian el controlador activo.\n\nLos recuentos describen las versiones disponibles por origen: cada paquete de Arch se cuenta en Recomendados (Arch), sea cual sea su canal de NVIDIA, y las versiones solo de NVIDIA se cuentan en su canal de NVIDIA. La disponibilidad también depende de los catálogos actuales de paquetes y de compilaciones personalizadas. Usa la acción Ayuda en un filtro para ver su explicación."
+    },
+    "channel": {
+      "title": "Canal de actualización",
+      "text": "Elige la categoría usada para la selección predeterminada, los avisos de actualización y la comparación «Actualizado». Todos los canales compara todas las categorías disponibles. A compilar selecciona versiones que necesitan crear paquetes localmente.\n\nEste ajuste no instala actualizaciones automáticamente. Los filtros de origen controlan por separado lo que ves en el selector."
+    },
+    "builds": {
+      "title": "Mostrar compilaciones exactas (-N)",
+      "text": "Muestra cada revisión de paquete de Arch, como 615.78.08-1 y 615.78.08-2, en lugar de agruparlas bajo una sola versión de NVIDIA. El número tras el guion es la revisión del paquete, no una nueva versión del controlador NVIDIA.\n\nEsto cambia cómo se muestra la lista y permite elegir una revisión de paquete exacta; no cambia el controlador instalado."
+    },
+    "install": {
+      "title": "Instalar controlador",
+      "text": "El plugin prepara y valida una imagen de sistema comprimida en /home y luego la escribe en la ranura A/B inactiva de SteamOS. El contenido anterior de esa ranura se reemplaza. El sistema que estás usando se conserva para poder volver atrás. Reinicia cuando termine la preparación para usar el nuevo controlador.\n\nEl plugin admite disposiciones A/B compatibles con el tamaño original de la raíz, así como raíces ampliadas previamente a 8 GB. Usa el tamaño de destino detectado y comprueba el espacio libre; no redimensiona particiones. Las versiones personalizadas también necesitan tiempo y espacio para compilar los paquetes localmente."
+    },
+    "rollback": {
+      "title": "Volver al sistema anterior",
+      "text": "Selecciona el sistema anterior conservado para el próximo arranque, tras verificar que las dos identidades de sistema guardadas siguen coincidiendo. Reinicia para cambiar. Esto cambia la ranura de sistema guardada, no solo un paquete de controlador.\n\nEs posible que no se pueda volver atrás si una actualización del sistema u otra operación ha reemplazado el sistema guardado. Una preparación posterior del controlador sobrescribe la ranura inactiva."
+    },
+    "reboot": {
+      "title": "Reiniciar ahora",
+      "text": "Reinicia el PC en el sistema seleccionado por la preparación del controlador o la vuelta atrás completada. Hasta que reinicies, el controlador actual sigue cargado. Guarda tu trabajo abierto antes de reiniciar."
+    },
+    "log": {
+      "title": "Registro de actualización del controlador",
+      "text": "Abre el registro de la operación guardado en una ventana más grande. El modo En vivo siempre sigue la línea más reciente al final. Pulsa el stick izquierdo (L3) para explorar el historial con el stick derecho; pulsa L3 de nuevo para volver a En vivo. En el modo historial también puedes usar la rueda del ratón o el teclado. Haz clic en el registro para cambiar de modo con un ratón.\n\nEl registro sigue disponible tras reiniciar Decky. Los registros muy grandes muestran su parte reciente y la ruta completa del archivo. Abrir o cerrar el visor no inicia, cancela ni cambia la operación."
+    },
+    "notes": {
+      "title": "Notas de la versión",
+      "text": "Lee los cambios publicados por NVIDIA para el controlador seleccionado. Puede que las notas no estén disponibles para todos los paquetes archivados. Abrir esta ventana no instala el controlador. El historial de versiones del plugin es una sección distinta en Ajustes."
+    },
+    "reconnect": {
+      "title": "Reconectar",
+      "text": "Actualiza el estado de la operación del controlador tras un problema de conexión. Una operación en curso pertenece a systemd y puede continuar mientras Decky se recarga. Reconectar observa esa operación existente; no inicia una segunda instalación."
+    },
+    "settings": {
+      "title": "Ajustes del plugin",
+      "text": "Consulta el historial de versiones del plugin, comprueba las versiones disponibles y accede a los enlaces del proyecto. Las actualizaciones del plugin reemplazan el propio plugin de Decky; las actualizaciones del controlador NVIDIA son una acción distinta en el panel principal.\n\nLa instalación del plugin se bloquea mientras hay una operación del controlador en curso o se desconoce su estado."
+    },
+    "history": {
+      "title": "Historial de versiones del plugin",
+      "text": "Lee los cambios realizados en el plugin de Decky. Es distinto de las notas de versión del controlador NVIDIA y no cambia el controlador instalado."
+    },
+    "plugin": {
+      "title": "Actualizaciones del plugin y enlaces del proyecto",
+      "text": "Elige una versión publicada del plugin y deja que Decky instale su ZIP, o abre los enlaces de comentarios e incidencias del proyecto. Esto actualiza el plugin, no el controlador NVIDIA. El repositorio configurado determina qué versiones se ofrecen."
+    },
+    "support": {
+      "title": "Soporte",
+      "text": "Abre los enlaces de soporte del autor del plugin. Esta sección no cambia tu controlador ni la configuración de tu sistema."
+    }
+  },
   "whats_new": {
+    "v0_5_0": {
+      "title": "Novedades de la 0.5.0",
+      "items": [
+        "Cambios de controlador más fiables: se conserva tu configuración de SteamOS y se gestiona el error de construcción del initramfs (blake2b_generic) que podía bloquear una actualización",
+        "Un controlador ya instalado ahora se explica y se rechaza en lugar de fallar en silencio",
+        "Nuevo visor de registro: con desplazamiento, se conserva tras reiniciar Decky y permite recorrer el historial con L3",
+        "Ayuda contextual integrada en cada control, en español, inglés y francés",
+        "Selector de controladores reorganizado: Recomendados (Arch) lista los paquetes de Arch que conviene elegir, y las versiones solo de NVIDIA se dividen en Recomendado, NFB y Beta, con recuentos en vivo",
+        "Las notas de versión y los canales de NVIDIA cubren ahora los catálogos de producción y New Feature Branch"
+      ]
+    },
     "v0_4_0": {
       "title": "Novedades de la 0.4.0",
       "items": [

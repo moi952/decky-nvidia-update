@@ -41,7 +41,10 @@ def merge_catalogs(catalogs):
         for entry in entries:
             if not isinstance(entry, dict):
                 continue
-            version = entry.get("DisplayVersion")
+            # NVIDIA leaves DisplayVersion empty on some releases (e.g. 595.80,
+            # 595.84), whose plain Version is the same string Arch/the build
+            # list use. Without this they would stay unclassified.
+            version = entry.get("DisplayVersion") or entry.get("Version")
             if not isinstance(version, str) or not re.fullmatch(r"\d+(?:\.\d+){1,3}", version):
                 continue
             category = next((name for flag, name in (

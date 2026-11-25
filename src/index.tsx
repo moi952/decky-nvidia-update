@@ -18,6 +18,7 @@ import {
   ButtonItem,
   ToggleField,
   ConfirmModal,
+  Focusable,
   showModal,
   staticClasses,
 } from "@decky/ui";
@@ -228,8 +229,10 @@ function Content() {
     () =>
       cachedChannelFilters ?? {
         recommended: true,
+        nvidia_recommended: true,
         nfb: true,
         beta: true,
+        // No switch: releases NVIDIA does not classify stay visible.
         nvidia_other: true,
       },
   );
@@ -306,7 +309,13 @@ function Content() {
       .finally(() => setLoadingVersions(false));
     call<[], Settings>("get_settings").then((s) => {
       setShowBuildNumbers(s.show_build_numbers);
-      setDefaultChannel(s.default_channel);
+      // "Other NVIDIA" no longer exists; it mostly held NVIDIA's recommended
+      // releases, so a saved choice moves to that channel.
+      setDefaultChannel(
+        s.default_channel === "nvidia_other"
+          ? "nvidia_recommended"
+          : s.default_channel,
+      );
       setShowChannelFilters(s.channel_filters_expanded);
     });
     call<[], { status: string }>("get_transaction_status").then((s) =>
@@ -695,14 +704,17 @@ function Content() {
                 NVIDIA Driver
               </span>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
+            <Focusable
+              flow-children="horizontal"
+              style={{ display: "flex", gap: 8 }}
+            >
               <ActionButton onClick={() => showModal(<HelpIndex />)}>
                 <FaInfoCircle size={14} />
               </ActionButton>
               <ActionButton onClick={goToSettings} {...helpProps("settings")}>
                 <FaCog size={14} />
               </ActionButton>
-            </div>
+            </Focusable>
           </div>
         </PanelSectionRow>
       </PanelSection>
@@ -711,13 +723,6 @@ function Content() {
         info={pluginUpdateInfo}
         onClick={() => {
           pluginUpdateFocus.markExpanded();
-          goToSettings();
-        }}
-      />
-      <WhatsNewBanner
-        versions={getWhatsNewVersions()}
-        onFeatureRequest={() => {
-          featureRequestFocus.markExpanded();
           goToSettings();
         }}
       />
@@ -811,6 +816,7 @@ function Content() {
             defaultChannel={defaultChannel}
             categoryLabels={{
               recommended: t("tag_recommended"),
+              nvidia_recommended: t("tag_recommended"),
               nfb: t("tag_nfb"),
               beta: t("tag_beta"),
               nvidia_other: t("tag_other"),
@@ -1098,9 +1104,12 @@ function Content() {
             {...helpProps("channel")}
             options={[
               { value: "recommended", label: t("channel_recommended") },
+              {
+                value: "nvidia_recommended",
+                label: t("channel_nvidia_recommended"),
+              },
               { value: "nfb", label: t("channel_nfb") },
               { value: "beta", label: t("channel_beta") },
-              { value: "nvidia_other", label: t("channel_nvidia_other") },
               { value: "all", label: t("channel_all") },
               { value: "tocompile", label: t("channel_tocompile") },
             ]}
@@ -1139,6 +1148,19 @@ function Content() {
             </PanelSectionRow>
             <PanelSectionRow>
               <ToggleField
+                label={channelFilterLabel(
+                  t("channel_nvidia_recommended"),
+                  counts.nvidia_recommended,
+                )}
+                checked={channelFilters.nvidia_recommended}
+                {...helpProps("nvidia_recommended")}
+                onChange={(v: boolean) =>
+                  setChannelFilters((f) => ({ ...f, nvidia_recommended: v }))
+                }
+              />
+            </PanelSectionRow>
+            <PanelSectionRow>
+              <ToggleField
                 label={channelFilterLabel(t("channel_nfb"), counts.nfb)}
                 checked={channelFilters.nfb}
                 {...helpProps("nfb")}
@@ -1157,22 +1179,18 @@ function Content() {
                 }
               />
             </PanelSectionRow>
-            <PanelSectionRow>
-              <ToggleField
-                label={channelFilterLabel(
-                  t("channel_nvidia_other"),
-                  counts.nvidia_other,
-                )}
-                checked={channelFilters.nvidia_other}
-                {...helpProps("other")}
-                onChange={(v: boolean) =>
-                  setChannelFilters((f) => ({ ...f, nvidia_other: v }))
-                }
-              />
-            </PanelSectionRow>
           </CollapsibleSection>
         </PanelSectionRow>
       </PanelSection>
+
+      {/* Always last in the panel. */}
+      <WhatsNewBanner
+        versions={getWhatsNewVersions()}
+        onFeatureRequest={() => {
+          featureRequestFocus.markExpanded();
+          goToSettings();
+        }}
+      />
     </>
   );
 }
