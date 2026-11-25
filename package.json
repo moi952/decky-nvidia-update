@@ -1,6 +1,6 @@
 {
   "name": "decky-nvidia-update",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "display_name": "NVIDIA Driver Update",
   "description": "Standalone NVIDIA driver preparation for the inactive SteamOS A/B slot, with compressed staging and rollback.",
   "type": "module",
